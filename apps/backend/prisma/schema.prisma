@@ -1,0 +1,247 @@
+// apps/backend/prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  customer
+  loan_officer
+  underwriter
+}
+
+enum ApplicationStatus {
+  draft
+  submitted
+  under_review
+  pending_documents
+  approved
+  rejected
+  signed
+}
+
+enum DocumentType {
+  drivers_license
+  pay_stub
+  bank_statement
+  tax_return
+  proof_of_insurance
+  proof_of_residence
+  other
+}
+
+enum DocumentStatus {
+  requested
+  uploaded
+  verified
+  rejected
+}
+
+model User {
+  id                    Int       @id @default(autoincrement())
+  email                 String    @unique
+  encryptedPassword     String    @map("encrypted_password")
+  firstName             String    @map("first_name")
+  lastName              String    @map("last_name")
+  phone                 String
+  role                  Role      @default(customer)
+  jti                   String?   @unique
+  confirmedAt           DateTime? @map("confirmed_at")
+  confirmationToken     String?   @unique @map("confirmation_token")
+  confirmationSentAt    DateTime? @map("confirmation_sent_at")
+  resetPasswordToken    String?   @unique @map("reset_password_token")
+  resetPasswordSentAt   DateTime? @map("reset_password_sent_at")
+  failedAttempts        Int       @default(0) @map("failed_attempts")
+  lockedAt              DateTime? @map("locked_at")
+  unlockToken           String?   @unique @map("unlock_token")
+  signInCount           Int       @default(0) @map("sign_in_count")
+  currentSignInAt       DateTime? @map("current_sign_in_at")
+  lastSignInAt          DateTime? @map("last_sign_in_at")
+  currentSignInIp       String?   @map("current_sign_in_ip")
+  lastSignInIp          String?   @map("last_sign_in_ip")
+  otpSecret             String?   @map("otp_secret")
+  otpRequiredForLogin   Boolean?  @map("otp_required_for_login")
+  otpBackupCodes        String?   @map("otp_backup_codes")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  applications          Application[]
+  applicationNotes      ApplicationNote[]
+  statusHistories       StatusHistory[]
+  verifiedDocuments     Document[]        @relation("VerifiedBy")
+
+  @@map("users")
+}
+
+model Application {
+  id                Int               @id @default(autoincrement())
+  applicationNumber String?           @unique @map("application_number")
+  status            ApplicationStatus @default(draft)
+  currentStep       Int               @default(1) @map("current_step")
+  dob               DateTime?         @db.Date
+  loanAmount        Decimal?          @map("loan_amount") @db.Decimal(10, 2)
+  downPayment       Decimal?          @map("down_payment") @db.Decimal(10, 2)
+  loanTerm          Int?              @map("loan_term")
+  interestRate      Decimal?          @map("interest_rate") @db.Decimal(5, 2)
+  monthlyPayment    Decimal?          @map("monthly_payment") @db.Decimal(10, 2)
+  rejectionReason   String?           @map("rejection_reason")
+  signatureData     String?           @map("signature_data")
+  signedAt          DateTime?         @map("signed_at")
+  agreementAccepted Boolean?          @map("agreement_accepted")
+  submittedAt       DateTime?         @map("submitted_at")
+  decidedAt         DateTime?         @map("decided_at")
+  ssnEncrypted      String?           @map("ssn_encrypted")
+  userId            Int               @map("user_id")
+  createdAt         DateTime          @default(now()) @map("created_at")
+  updatedAt         DateTime          @updatedAt @map("updated_at")
+
+  user              User              @relation(fields: [userId], references: [id])
+  addresses         Address[]
+  financialInfos    FinancialInfo[]
+  vehicles          Vehicle[]
+  documents         Document[]
+  notes             ApplicationNote[]
+  statusHistories   StatusHistory[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([userId, status])
+  @@map("applications")
+}
+
+model Address {
+  id              Int         @id @default(autoincrement())
+  addressType     String      @map("address_type")
+  streetAddress   String      @map("street_address")
+  city            String
+  state           String
+  zipCode         String      @map("zip_code")
+  yearsAtAddress  Int?        @map("years_at_address")
+  monthsAtAddress Int?        @map("months_at_address")
+  applicationId   Int         @map("application_id")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  updatedAt       DateTime    @updatedAt @map("updated_at")
+
+  application     Application @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId])
+  @@index([applicationId, addressType])
+  @@map("addresses")
+}
+
+model FinancialInfo {
+  id               Int         @id @default(autoincrement())
+  annualIncome     Decimal?    @map("annual_income") @db.Decimal(12, 2)
+  monthlyIncome    Decimal?    @map("monthly_income") @db.Decimal(10, 2)
+  monthlyExpenses  Decimal?    @map("monthly_expenses") @db.Decimal(10, 2)
+  otherIncome      Decimal?    @map("other_income") @db.Decimal(10, 2)
+  employerName     String?     @map("employer_name")
+  jobTitle         String?     @map("job_title")
+  employmentStatus String?     @map("employment_status")
+  incomeType       String?     @map("income_type")
+  yearsEmployed    Int?        @map("years_employed")
+  monthsEmployed   Int?        @map("months_employed")
+  creditScore      Int?        @map("credit_score")
+  applicationId    Int         @map("application_id")
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+
+  application      Application @relation(fields: [applicationId], references: [id])
+
+  @@index([applicationId])
+  @@index([applicationId, incomeType])
+  @@map("financial_infos")
+}
+
+model Vehicle {
+  id             Int         @id @default(autoincrement())
+  make           String
+  model          String
+  year           Int
+  trim           String?
+  vin            String?     @unique
+  mileage        Int?
+  condition      String?
+  estimatedValue Decimal?    @map("estimated_value") @db.Decimal(10, 2)
+  applicationId  Int         @unique @map("application_id")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+
+  application    Application @relation(fields: [applicationId], references: [id])
+
+  @@index([make, model, year])
+  @@map("vehicles")
+}
+
+model Document {
+  id             Int            @id @default(autoincrement())
+  docType        DocumentType   @default(other) @map("doc_type")
+  fileName       String         @map("file_name")
+  fileUrl        String?        @map("file_url")
+  fileSize       Int?           @map("file_size")
+  contentType    String?        @map("content_type")
+  status         DocumentStatus @default(requested)
+  requestNote    String?        @map("request_note")
+  rejectionNote  String?        @map("rejection_note")
+  uploadedAt     DateTime?      @map("uploaded_at")
+  verifiedAt     DateTime?      @map("verified_at")
+  verifiedById   Int?           @map("verified_by_id")
+  applicationId  Int            @map("application_id")
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
+
+  application    Application    @relation(fields: [applicationId], references: [id])
+  verifiedBy     User?          @relation("VerifiedBy", fields: [verifiedById], references: [id])
+
+  @@index([applicationId])
+  @@index([status])
+  @@map("documents")
+}
+
+model ApplicationNote {
+  id            Int         @id @default(autoincrement())
+  note          String?
+  internal      Boolean?
+  applicationId Int         @map("application_id")
+  userId        Int         @map("user_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  application   Application @relation(fields: [applicationId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@index([applicationId])
+  @@map("application_notes")
+}
+
+model StatusHistory {
+  id            Int         @id @default(autoincrement())
+  fromStatus    String?     @map("from_status")
+  toStatus      String?     @map("to_status")
+  comment       String?
+  applicationId Int         @map("application_id")
+  userId        Int         @map("user_id")
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  application   Application @relation(fields: [applicationId], references: [id])
+  user          User        @relation(fields: [userId], references: [id])
+
+  @@index([applicationId])
+  @@map("status_histories")
+}
+
+model JwtDenylist {
+  id        Int       @id @default(autoincrement())
+  jti       String?
+  exp       DateTime?
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([jti])
+  @@map("jwt_denylists")
+}
