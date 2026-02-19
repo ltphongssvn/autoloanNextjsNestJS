@@ -44,6 +44,7 @@ repos:
         name: Validate YAML Files
       - id: check-added-large-files
         args: ['--maxkb=500']
+        exclude: package-lock\.json
         name: Check for Large Files
 
   # TODO: Enable after monorepo workspaces (apps/frontend, apps/backend) are scaffolded
