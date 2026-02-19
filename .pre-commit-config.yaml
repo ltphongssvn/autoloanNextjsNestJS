@@ -1,0 +1,96 @@
+# .pre-commit-config.yaml
+# Auto Loan App - Next.js + NestJS TypeScript Full-Stack Monorepo
+# Pre-commit hooks for security, code quality, and consistency
+repos:
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.5.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: .*\.lock|.*\.log|package-lock\.json
+
+  - repo: local
+    hooks:
+      - id: block-large-files
+        name: Block Large Binary Files
+        entry: sh -c 'git diff --cached --name-only | grep -qE "\.(h5|pkl|pth|onnx|parquet|sqlite3)$" && echo "ERROR - Large binary files detected. Remove with git rm --cached" && exit 1 || exit 0'
+        language: system
+        pass_filenames: false
+      - id: check-env-files
+        name: Block .env Files
+        entry: sh -c 'git diff --cached --name-only | grep -qE "^\.env(\..+)?$|/\.env(\..+)?$" && echo "ERROR - .env file detected. Never commit secrets!" && exit 1 || exit 0'
+        language: system
+        pass_filenames: false
+      - id: verify-selective-staging
+        name: Verify Selective Staging
+        entry: sh -c 'echo "Staged files:" && git diff --cached --name-only'
+        language: system
+        pass_filenames: false
+        stages: [pre-commit]
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: mixed-line-ending
+        args: ['--fix=lf']
+        name: Fix Line Endings to LF
+      - id: end-of-file-fixer
+        name: Fix End of Files
+      - id: trailing-whitespace
+        name: Trim Trailing Whitespace
+      - id: check-json
+        name: Validate JSON Files
+      - id: check-yaml
+        name: Validate YAML Files
+      - id: check-added-large-files
+        args: ['--maxkb=500']
+        name: Check for Large Files
+
+  # TODO: Enable after monorepo workspaces (apps/frontend, apps/backend) are scaffolded
+  # - repo: local
+  #   hooks:
+  #     - id: eslint-check
+  #       name: ESLint Check (CI Mirror)
+  #       entry: npx eslint --max-warnings=0 --no-warn-ignored
+  #       language: system
+  #       types_or: [ts, tsx, javascript, jsx]
+  #       pass_filenames: true
+  #     - id: typescript-check-frontend
+  #       name: TypeScript Check - Frontend
+  #       entry: bash -c 'cd apps/frontend && npx tsc --noEmit'
+  #       language: system
+  #       pass_filenames: false
+  #       types_or: [ts, tsx]
+  #     - id: typescript-check-backend
+  #       name: TypeScript Check - Backend
+  #       entry: bash -c 'cd apps/backend && npx tsc --noEmit'
+  #       language: system
+  #       pass_filenames: false
+  #       types_or: [ts, tsx]
+  #     - id: vitest-quick
+  #       name: Vitest Quick Tests (CI Mirror)
+  #       entry: bash -c 'npx vitest run --passWithNoTests --bail 2>&1 || true'
+  #       language: system
+  #       pass_filenames: false
+
+  # TODO: Enable after monorepo workspaces are scaffolded
+  # - repo: local
+  #   hooks:
+  #     - id: vitest-coverage-push
+  #       name: Vitest Coverage Threshold 80% Per-File
+  #       entry: bash -c 'npx vitest run --coverage --passWithNoTests 2>&1 | tee /tmp/vitest-coverage.log | tail -60 && grep -q "ERROR" /tmp/vitest-coverage.log && exit 1 || exit 0'
+  #       language: system
+  #       pass_filenames: false
+  #       stages: [pre-push]
+  #     - id: frontend-build-push
+  #       name: Next.js Build Verification (Pre-push)
+  #       entry: bash -c 'cd apps/frontend && npx next build 2>&1 | tail -20'
+  #       language: system
+  #       pass_filenames: false
+  #       stages: [pre-push]
+  #     - id: backend-build-push
+  #       name: NestJS Build Verification (Pre-push)
+  #       entry: bash -c 'cd apps/backend && npx nest build 2>&1 | tail -20'
+  #       language: system
+  #       pass_filenames: false
+  #       stages: [pre-push]
