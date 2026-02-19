@@ -1,6 +1,5 @@
 // apps/frontend/src/app/layout.test.tsx
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
 
 vi.mock('next/font/google', () => ({
   Geist: () => ({ variable: '--font-geist-sans' }),
@@ -10,33 +9,22 @@ vi.mock('next/font/google', () => ({
 import RootLayout from './layout';
 
 describe('RootLayout', () => {
-  it('should render children content', () => {
-    render(
-      <RootLayout>
-        <div data-testid="child">Test Child</div>
-      </RootLayout>
-    );
-    expect(screen.getByTestId('child')).toBeInTheDocument();
-    expect(screen.getByText('Test Child')).toBeInTheDocument();
-  });
-
-  it('should render multiple children', () => {
-    render(
-      <RootLayout>
-        <p>First</p>
-        <p>Second</p>
-      </RootLayout>
-    );
-    expect(screen.getByText('First')).toBeInTheDocument();
-    expect(screen.getByText('Second')).toBeInTheDocument();
-  });
-
-  it('should be a function component that accepts children prop', () => {
+  it('should be a function component', () => {
     expect(typeof RootLayout).toBe('function');
+  });
+
+  it('should return html element with lang="en"', () => {
     const result = RootLayout({ children: <div>test</div> });
-    expect(result).toBeTruthy();
     expect(result.type).toBe('html');
     expect(result.props.lang).toBe('en');
+  });
+
+  it('should render children inside body', () => {
+    const child = <div data-testid="child">Test Child</div>;
+    const result = RootLayout({ children: child });
+    const body = result.props.children;
+    expect(body.type).toBe('body');
+    expect(body.props.children).toBe(child);
   });
 
   it('should include antialiased class on body', () => {
