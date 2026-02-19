@@ -4,8 +4,8 @@ import { render, screen } from '@testing-library/react';
 import Home from './page';
 
 vi.mock('next/image', () => ({
-  default: (props: React.ImgHTMLAttributes<HTMLImageElement>) => (
-    <img {...props} />
+  default: ({ priority, ...props }: Record<string, unknown>) => (
+    <img {...props} data-priority={priority ? 'true' : undefined} />
   ),
 }));
 
