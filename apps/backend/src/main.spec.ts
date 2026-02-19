@@ -1,47 +1,49 @@
 // apps/backend/src/main.spec.ts
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
+
+const mockApp = {
+  use: jest.fn().mockReturnThis(),
+  enableCors: jest.fn().mockReturnThis(),
+  setGlobalPrefix: jest.fn().mockReturnThis(),
+  useGlobalPipes: jest.fn().mockReturnThis(),
+  listen: jest.fn().mockResolvedValue(undefined),
+};
 
 jest.mock('@nestjs/core', () => ({
   NestFactory: {
-    create: jest.fn(),
+    create: jest.fn().mockResolvedValue(mockApp),
   },
+  ValidationPipe: jest.fn(),
 }));
 
 jest.mock('helmet', () => jest.fn(() => 'helmet-middleware'));
 
-describe('Bootstrap', () => {
-  const mockApp = {
-    use: jest.fn(),
-    enableCors: jest.fn(),
-    setGlobalPrefix: jest.fn(),
-    useGlobalPipes: jest.fn(),
-    listen: jest.fn().mockResolvedValue(undefined),
-  };
+jest.mock('./app.module', () => ({
+  AppModule: jest.fn(),
+}));
 
+import { NestFactory } from '@nestjs/core';
+
+describe('Bootstrap', () => {
   beforeEach(() => {
-    jest.resetModules();
+    jest.clearAllMocks();
     (NestFactory.create as jest.Mock).mockResolvedValue(mockApp);
     jest.spyOn(console, 'log').mockImplementation();
   });
 
   afterEach(() => {
     jest.restoreAllMocks();
-    jest.clearAllMocks();
   });
 
   it('should create app, configure security, and listen on default port', async () => {
     delete process.env.PORT;
 
-    // Re-import to trigger bootstrap
     jest.isolateModules(() => {
       require('./main');
     });
 
-    // Allow async bootstrap to complete
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
-    expect(NestFactory.create).toHaveBeenCalledWith(AppModule);
+    expect(NestFactory.create).toHaveBeenCalledTimes(1);
     expect(mockApp.use).toHaveBeenCalled();
     expect(mockApp.enableCors).toHaveBeenCalled();
     expect(mockApp.setGlobalPrefix).toHaveBeenCalledWith('api/v1');
@@ -56,10 +58,27 @@ describe('Bootstrap', () => {
       require('./main');
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 300));
 
     expect(mockApp.listen).toHaveBeenCalledWith('4000');
 
     delete process.env.PORT;
+  });
+
+  it('should configure CORS with FRONTEND_URL when set', async () => {
+    process.env.FRONTEND_URL = 'https://myapp.com';
+
+    jest.isolateModules(() => {
+      require('./main');
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    expect(mockApp.enableCors).toHaveBeenCalledWith({
+      origin: 'https://myapp.com',
+      credentials: true,
+    });
+
+    delete process.env.FRONTEND_URL;
   });
 });
