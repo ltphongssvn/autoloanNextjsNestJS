@@ -17,8 +17,8 @@ repos:
         language: system
         pass_filenames: false
       - id: check-env-files
-        name: Block .env Files
-        entry: sh -c 'git diff --cached --name-only | grep -qE "^\.env(\..+)?$|/\.env(\..+)?$" && echo "ERROR - .env file detected. Never commit secrets!" && exit 1 || exit 0'
+        name: Block .env Files (allow .env.example)
+        entry: sh -c 'git diff --cached --name-only | grep -E "\.env" | grep -vE "\.env\.example$" | grep -qE "^\.env(\..+)?$|/\.env(\..+)?$" && echo "ERROR - .env file detected. Never commit secrets!" && exit 1 || exit 0'
         language: system
         pass_filenames: false
       - id: verify-selective-staging
