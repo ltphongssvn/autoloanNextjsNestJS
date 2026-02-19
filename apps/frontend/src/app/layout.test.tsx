@@ -1,6 +1,12 @@
 // apps/frontend/src/app/layout.test.tsx
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+
+vi.mock('next/font/google', () => ({
+  Geist: () => ({ variable: '--font-geist-sans' }),
+  Geist_Mono: () => ({ variable: '--font-geist-mono' }),
+}));
+
 import RootLayout from './layout';
 
 describe('RootLayout', () => {
@@ -24,7 +30,7 @@ describe('RootLayout', () => {
     expect(html).toBeTruthy();
   });
 
-  it('should apply font variables to body', () => {
+  it('should apply font variables and antialiased to body', () => {
     const { container } = render(
       <RootLayout>
         <div>Content</div>
@@ -32,5 +38,7 @@ describe('RootLayout', () => {
     );
     const body = container.querySelector('body');
     expect(body?.className).toContain('antialiased');
+    expect(body?.className).toContain('--font-geist-sans');
+    expect(body?.className).toContain('--font-geist-mono');
   });
 });
