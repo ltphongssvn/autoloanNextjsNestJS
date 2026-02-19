@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { PrismaService } from './prisma.service';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { AppService } from './app.service';
         limit: 60,
       },
     ]),
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [
