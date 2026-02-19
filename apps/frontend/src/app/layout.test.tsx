@@ -10,7 +10,7 @@ vi.mock('next/font/google', () => ({
 import RootLayout from './layout';
 
 describe('RootLayout', () => {
-  it('should render children', () => {
+  it('should render children content', () => {
     render(
       <RootLayout>
         <div data-testid="child">Test Child</div>
@@ -20,32 +20,35 @@ describe('RootLayout', () => {
     expect(screen.getByText('Test Child')).toBeInTheDocument();
   });
 
-  it('should render html element with lang="en"', () => {
-    const { container } = render(
+  it('should render multiple children', () => {
+    render(
       <RootLayout>
-        <div>Content</div>
+        <p>First</p>
+        <p>Second</p>
       </RootLayout>
     );
-    const html = container.querySelector('html');
-    expect(html).toBeTruthy();
-    expect(html?.getAttribute('lang')).toBe('en');
+    expect(screen.getByText('First')).toBeInTheDocument();
+    expect(screen.getByText('Second')).toBeInTheDocument();
   });
 
-  it('should render body with class containing antialiased and font variables', () => {
-    const { container } = render(
-      <RootLayout>
-        <div>Content</div>
-      </RootLayout>
-    );
-    const body = container.querySelector('body');
-    if (body) {
-      expect(body.className).toContain('antialiased');
-    } else {
-      // In test env, body renders as part of html string inside container
-      const html = container.innerHTML;
-      expect(html).toContain('antialiased');
-      expect(html).toContain('--font-geist-sans');
-      expect(html).toContain('--font-geist-mono');
-    }
+  it('should be a function component that accepts children prop', () => {
+    expect(typeof RootLayout).toBe('function');
+    const result = RootLayout({ children: <div>test</div> });
+    expect(result).toBeTruthy();
+    expect(result.type).toBe('html');
+    expect(result.props.lang).toBe('en');
+  });
+
+  it('should include antialiased class on body', () => {
+    const result = RootLayout({ children: <div>test</div> });
+    const body = result.props.children;
+    expect(body.props.className).toContain('antialiased');
+  });
+
+  it('should include font variables on body', () => {
+    const result = RootLayout({ children: <div>test</div> });
+    const body = result.props.children;
+    expect(body.props.className).toContain('--font-geist-sans');
+    expect(body.props.className).toContain('--font-geist-mono');
   });
 });
