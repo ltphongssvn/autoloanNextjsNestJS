@@ -12,7 +12,7 @@ import { PrismaService } from '../prisma.service';
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
       secret: process.env.JWT_SECRET || 'default-secret-change-me',
-      signOptions: { expiresIn: process.env.JWT_EXPIRATION || '3600s' },
+      signOptions: { expiresIn: Number(process.env.JWT_EXPIRATION) || 3600 },
     }),
   ],
   providers: [JwtStrategy, JwtAuthGuard, RolesGuard, PrismaService],
