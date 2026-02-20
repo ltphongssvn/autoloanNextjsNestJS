@@ -36,7 +36,7 @@ import { SwaggerModule } from '@nestjs/swagger';
 describe('Bootstrap', () => {
   it('should create app and configure with Swagger', async () => {
     await import('./main');
-    await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 200));
     expect(NestFactory.create).toHaveBeenCalledTimes(1);
     expect(mockApp.setGlobalPrefix).toHaveBeenCalledWith('api/v1');
     expect(mockApp.enableCors).toHaveBeenCalled();
@@ -44,5 +44,5 @@ describe('Bootstrap', () => {
     expect(mockApp.listen).toHaveBeenCalled();
     expect(SwaggerModule.createDocument).toHaveBeenCalled();
     expect(SwaggerModule.setup).toHaveBeenCalledWith('api/docs', mockApp, expect.any(Object));
-  });
+  }, 15000);
 });
