@@ -142,8 +142,8 @@ describe('ApplicationDetailPage', () => {
   it('should navigate back on Back button click', async () => {
     mockGet.mockResolvedValue({ data: baseApp });
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Back')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Back'));
+    await waitFor(() => expect(screen.getByText(/Back/)).toBeInTheDocument());
+    fireEvent.click(screen.getByText(/Back/));
     expect(mockBack).toHaveBeenCalled();
   });
 
