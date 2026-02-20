@@ -9,6 +9,7 @@ import { AuthModule } from './auth';
 import { ApplicationsModule } from './applications';
 import { DocumentsModule } from './documents';
 import { NotesModule } from './notes';
+import { UsersModule } from './users';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { NotesModule } from './notes';
     ApplicationsModule,
     DocumentsModule,
     NotesModule,
+    UsersModule,
   ],
   controllers: [AppController],
   providers: [
