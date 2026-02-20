@@ -28,9 +28,10 @@ describe('LoginPage', () => {
 
   it('should render login form', () => {
     render(<LoginPage />);
-    expect(screen.getByText('Sign In')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument(); // pragma: allowlist secret
+    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
   });
 
   it('should call login on submit', async () => {
