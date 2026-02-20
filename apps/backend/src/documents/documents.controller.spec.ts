@@ -1,7 +1,11 @@
 // apps/backend/src/documents/documents.controller.spec.ts
+import { Test, TestingModule } from '@nestjs/testing';
 import { DocumentsController } from './documents.controller';
 import { DocumentsService } from './documents.service';
-import { JwtPayload } from '../auth/jwt.strategy';
+
+const mockReq = (sub: number, role: string) => ({
+  user: { sub, email: 'test@example.com', role, jti: 'test-jti' },
+});
 
 describe('DocumentsController', () => {
   let controller: DocumentsController;
@@ -11,39 +15,40 @@ describe('DocumentsController', () => {
     updateStatus: jest.fn(),
   };
 
-  const mockReq = (sub = 1) => ({
-    user: { sub, email: 'test@test.com', role: 'customer', jti: 'jti' } as JwtPayload,
-  });
-
-  beforeEach(() => {
-    controller = new DocumentsController(mockService as unknown as DocumentsService);
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      controllers: [DocumentsController],
+      providers: [{ provide: DocumentsService, useValue: mockService }],
+    }).compile();
+    controller = module.get(DocumentsController);
     jest.clearAllMocks();
   });
 
-  describe('upload', () => {
-    it('should call documentsService.upload', async () => {
-      mockService.upload.mockResolvedValue({ id: 1 });
-      const body = { fileName: 'test.pdf', docType: 'id_document', fileUrl: '/uploads/test.pdf', fileSize: 1024, contentType: 'application/pdf' };
-      const result = await controller.upload(1, mockReq(), body);
-      expect(result).toEqual({ id: 1 });
-      expect(mockService.upload).toHaveBeenCalledWith(1, 1, 'test.pdf', 'id_document', '/uploads/test.pdf', 1024, 'application/pdf');
-    });
+  it('should upload a document', async () => {
+    const file = { originalname: 'test.pdf', size: 1024, mimetype: 'application/pdf' } as Express.Multer.File;
+    mockService.upload.mockResolvedValue({ id: 1, fileName: 'test.pdf' });
+    const result = await controller.upload(1, mockReq(1, 'customer'), file, { doc_type: 'drivers_license' });
+    expect(mockService.upload).toHaveBeenCalledWith(1, 1, file, 'drivers_license');
+    expect(result).toEqual({ id: 1, fileName: 'test.pdf' });
   });
 
-  describe('findByApplication', () => {
-    it('should return documents', async () => {
-      mockService.findByApplication.mockResolvedValue([{ id: 1 }]);
-      const result = await controller.findByApplication(1);
-      expect(result).toEqual([{ id: 1 }]);
-    });
+  it('should find documents by application', async () => {
+    mockService.findByApplication.mockResolvedValue([{ id: 1 }]);
+    const result = await controller.findByApplication(1);
+    expect(mockService.findByApplication).toHaveBeenCalledWith(1);
+    expect(result).toEqual([{ id: 1 }]);
   });
 
-  describe('updateStatus', () => {
-    it('should update document status', async () => {
-      mockService.updateStatus.mockResolvedValue({ id: 1, status: 'approved' });
-      const result = await controller.updateStatus(1, mockReq(2), 'approved');
-      expect(mockService.updateStatus).toHaveBeenCalledWith(1, 'approved', 2);
-      expect(result.status).toBe('approved');
-    });
+  it('should update document status', async () => {
+    mockService.updateStatus.mockResolvedValue({ id: 1, status: 'verified' });
+    const result = await controller.updateStatus(1, mockReq(2, 'loan_officer'), { status: 'verified' });
+    expect(mockService.updateStatus).toHaveBeenCalledWith(1, 'verified', 2, undefined);
+    expect(result).toEqual({ id: 1, status: 'verified' });
+  });
+
+  it('should pass rejection_note on reject', async () => {
+    mockService.updateStatus.mockResolvedValue({ id: 1, status: 'rejected' });
+    await controller.updateStatus(1, mockReq(2, 'loan_officer'), { status: 'rejected', rejection_note: 'Blurry' });
+    expect(mockService.updateStatus).toHaveBeenCalledWith(1, 'rejected', 2, 'Blurry');
   });
 });
