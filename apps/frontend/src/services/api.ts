@@ -1,86 +1,55 @@
 // apps/frontend/src/services/api.ts
-import type { ApiResponse, Application, User, SignupData } from '@autoloan/shared-types';
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
+function getToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem('token');
+}
 
-async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+async function request(path: string, options: RequestInit = {}) {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...((options.headers as Record<string, string>) || {}),
+  };
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
-
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   if (!res.ok) {
-    const error = await res.json().catch(() => ({ message: res.statusText }));
-    throw new Error(error.message || `Request failed: ${res.status}`);
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || `Request failed: ${res.status}`);
   }
-
   return res.json();
 }
 
 export const api = {
   auth: {
-    login: (email: string, password: string) =>
-      request<ApiResponse<{ token: string; user: User }>>('/auth', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      }),
-    signup: (data: SignupData | Record<string, string>) =>
-      request<ApiResponse<{ token: string; user: User }>>('/auth/signup', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    logout: () =>
-      request<void>('/auth/logout', { method: 'POST' }),
+    login: (data: Record<string, string>) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
+    signup: (data: Record<string, string> | import('@autoloan/shared-types').SignupData) => request('/auth/signup', { method: 'POST', body: JSON.stringify(data) }),
   },
   applications: {
-    list: () => request<ApiResponse<Application[]>>('/applications'),
-    get: (id: number) => request<ApiResponse<Application>>(`/applications/${id}`),
-    create: (data: Record<string, unknown>) =>
-      request<ApiResponse<Application>>('/applications', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    updateStatus: (id: number, status: string) =>
-      request<ApiResponse<Application>>(`/applications/${id}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }),
+    list: () => request('/applications'),
+    get: (id: number) => request(`/applications/${id}`),
+    create: (data: Record<string, unknown>) => request('/applications', { method: 'POST', body: JSON.stringify(data) }),
+    updateStatus: (id: number, status: string) => request(`/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
+    history: (id: number) => request(`/applications/${id}/history`),
   },
   documents: {
-    list: (applicationId: number) =>
-      request<ApiResponse<unknown[]>>(`/applications/${applicationId}/documents`),
-    upload: (applicationId: number, data: Record<string, unknown>) =>
-      request<ApiResponse<unknown>>(`/applications/${applicationId}/documents`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }),
-    updateStatus: (applicationId: number, docId: number, status: string) =>
-      request<ApiResponse<unknown>>(`/applications/${applicationId}/documents/${docId}/status`, {
-        method: 'PATCH',
-        body: JSON.stringify({ status }),
-      }),
+    list: (applicationId: number) => request(`/applications/${applicationId}/documents`),
+    upload: (applicationId: number, data: FormData) => {
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+      return fetch(`${BASE_URL}/applications/${applicationId}/documents`, { method: 'POST', headers, body: data }).then(r => r.json());
+    },
+    updateStatus: (id: number, status: string) => request(`/documents/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
   },
   notes: {
-    list: (applicationId: number) =>
-      request<ApiResponse<unknown[]>>(`/applications/${applicationId}/notes`),
-    create: (applicationId: number, note: string, internal = false) =>
-      request<ApiResponse<unknown>>(`/applications/${applicationId}/notes`, {
-        method: 'POST',
-        body: JSON.stringify({ note, internal }),
-      }),
+    list: (applicationId: number) => request(`/applications/${applicationId}/notes`),
+    create: (applicationId: number, data: Record<string, unknown>) => request(`/applications/${applicationId}/notes`, { method: 'POST', body: JSON.stringify(data) }),
   },
   users: {
-    me: () => request<ApiResponse<User>>('/users/me'),
-    updateProfile: (data: Record<string, string>) =>
-      request<ApiResponse<User>>('/users/me', {
-        method: 'PATCH',
-        body: JSON.stringify(data),
-      }),
+    me: () => request('/users/me'),
+    updateProfile: (data: Record<string, string>) => request('/users/me', { method: 'PATCH', body: JSON.stringify(data) }),
   },
 };
