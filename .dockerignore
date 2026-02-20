@@ -1,0 +1,9 @@
+node_modules
+.git
+.env
+*.md
+.secrets.baseline
+.pre-commit-config.yaml
+coverage
+.next
+dist
