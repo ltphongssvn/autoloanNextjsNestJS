@@ -1,6 +1,5 @@
 // apps/frontend/src/components/Toast.tsx
 'use client';
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
@@ -17,6 +16,12 @@ let addToastFn: ((message: string, type: ToastType) => void) | null = null;
 export function showToast(message: string, type: ToastType = 'info') {
   if (addToastFn) addToastFn(message, type);
 }
+
+const toastStyles: Record<ToastType, string> = {
+  success: 'bg-green-600',
+  error: 'bg-red-600',
+  info: 'bg-blue-600',
+};
 
 export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -40,20 +45,14 @@ export default function ToastContainer() {
     return () => { addToastFn = null; };
   }, [addToast]);
 
-  const bgColor = (type: ToastType) => {
-    if (type === 'success') return '#16a34a';
-    if (type === 'error') return '#dc2626';
-    return '#2563eb';
-  };
-
   if (toasts.length === 0) return null;
 
   return (
-    <div data-testid="toast-container" style={{ position: 'fixed', top: 16, right: 16, zIndex: 9999 }}>
+    <div data-testid="toast-container" className="fixed top-4 right-4 z-50">
       {toasts.map((toast) => (
-        <div key={toast.id} data-testid="toast" role="alert" style={{ background: bgColor(toast.type), color: '#fff', padding: '12px 16px', borderRadius: 8, marginBottom: 8, display: 'flex', justifyContent: 'space-between', minWidth: 280 }}>
-          <span>{toast.message}</span>
-          <button onClick={() => removeToast(toast.id)} aria-label="Dismiss" style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', marginLeft: 12 }}>✕</button>
+        <div key={toast.id} data-testid="toast" role="alert" className={`${toastStyles[toast.type]} text-white px-4 py-3 rounded-lg mb-2 flex justify-between items-center min-w-[280px] shadow-lg`}>
+          <span className="text-sm">{toast.message}</span>
+          <button onClick={() => removeToast(toast.id)} aria-label="Dismiss" className="ml-3 text-white/80 hover:text-white transition">&times;</button>
         </div>
       ))}
     </div>
