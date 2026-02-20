@@ -35,6 +35,8 @@ export const api = {
         method: 'POST',
         body: JSON.stringify(data),
       }),
+    logout: () =>
+      request<void>('/auth/logout', { method: 'POST' }),
   },
   applications: {
     list: () => request<ApiResponse<Application[]>>('/applications'),
@@ -48,6 +50,37 @@ export const api = {
       request<ApiResponse<Application>>(`/applications/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status }),
+      }),
+  },
+  documents: {
+    list: (applicationId: number) =>
+      request<ApiResponse<unknown[]>>(`/applications/${applicationId}/documents`),
+    upload: (applicationId: number, data: Record<string, unknown>) =>
+      request<ApiResponse<unknown>>(`/applications/${applicationId}/documents`, {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+    updateStatus: (applicationId: number, docId: number, status: string) =>
+      request<ApiResponse<unknown>>(`/applications/${applicationId}/documents/${docId}/status`, {
+        method: 'PATCH',
+        body: JSON.stringify({ status }),
+      }),
+  },
+  notes: {
+    list: (applicationId: number) =>
+      request<ApiResponse<unknown[]>>(`/applications/${applicationId}/notes`),
+    create: (applicationId: number, note: string, internal = false) =>
+      request<ApiResponse<unknown>>(`/applications/${applicationId}/notes`, {
+        method: 'POST',
+        body: JSON.stringify({ note, internal }),
+      }),
+  },
+  users: {
+    me: () => request<ApiResponse<User>>('/users/me'),
+    updateProfile: (data: Record<string, string>) =>
+      request<ApiResponse<User>>('/users/me', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
       }),
   },
 };
