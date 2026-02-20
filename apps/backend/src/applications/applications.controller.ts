@@ -1,6 +1,7 @@
 // apps/backend/src/applications/applications.controller.ts
 import { Controller, Get, Post, Patch, Param, Body, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
+import { StatusHistoryService } from './status-history.service';
 import { CreateApplicationDto } from './create-application.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
@@ -14,7 +15,10 @@ interface AuthenticatedRequest {
 @Controller('applications')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class ApplicationsController {
-  constructor(private readonly applicationsService: ApplicationsService) {}
+  constructor(
+    private readonly applicationsService: ApplicationsService,
+    private readonly statusHistoryService: StatusHistoryService,
+  ) {}
 
   @Post()
   @Roles('customer')
@@ -31,17 +35,22 @@ export class ApplicationsController {
   }
 
   @Get(':id')
-  findOne(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
     return this.applicationsService.findOne(id, req.user.sub, req.user.role);
   }
 
   @Patch(':id/status')
   @Roles('loan_officer', 'underwriter')
   updateStatus(
-    @Req() req: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: string,
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { status: string },
   ) {
-    return this.applicationsService.updateStatus(id, status as any, req.user.sub);
+    return this.applicationsService.updateStatus(id, body.status as any, req.user.sub);
+  }
+
+  @Get(':id/history')
+  getHistory(@Param('id', ParseIntPipe) id: number) {
+    return this.statusHistoryService.findByApplication(id);
   }
 }
