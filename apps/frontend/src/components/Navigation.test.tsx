@@ -14,7 +14,7 @@ describe('Navigation', () => {
   it('should show public links when not logged in', () => {
     mockUseAuth.mockReturnValue({ user: null, logout: vi.fn() });
     render(<Navigation />);
-    expect(screen.getByText('Home')).toBeInTheDocument();
+    expect(screen.getByText('AutoLoan')).toBeInTheDocument();
     expect(screen.getByText('Sign In')).toBeInTheDocument();
     expect(screen.getByText('Create Account')).toBeInTheDocument();
   });
