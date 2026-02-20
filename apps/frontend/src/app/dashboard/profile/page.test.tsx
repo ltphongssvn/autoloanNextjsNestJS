@@ -12,15 +12,19 @@ vi.mock('../../../services/api', () => ({
   },
 }));
 
+const mockUseAuth = vi.fn();
 vi.mock('../../../context/AuthContext', () => ({
-  useAuth: () => ({
-    user: { id: 1, email: 'john@test.com', role: 'customer', first_name: 'John', last_name: 'Doe', phone: '555-0100' },
-    login: vi.fn(), signup: vi.fn(), logout: vi.fn(), token: 'tok', isLoading: false,
-  }),
+  useAuth: () => mockUseAuth(),
 }));
 
 describe('ProfilePage', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAuth.mockReturnValue({
+      user: { id: 1, email: 'john@test.com', role: 'customer', first_name: 'John', last_name: 'Doe', phone: '555-0100' },
+      login: vi.fn(), signup: vi.fn(), logout: vi.fn(), token: 'tok', isLoading: false,
+    });
+  });
 
   it('should render profile info and form', () => {
     render(<ProfilePage />);
@@ -61,5 +65,16 @@ describe('ProfilePage', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Saving...'));
     expect(screen.getByRole('button')).toBeDisabled();
+  });
+
+  it('should handle null user fields with empty defaults', () => {
+    mockUseAuth.mockReturnValue({
+      user: { id: 1, email: 'test@test.com', role: 'customer', first_name: null, last_name: null, phone: null },
+      login: vi.fn(), signup: vi.fn(), logout: vi.fn(), token: 'tok', isLoading: false,
+    });
+    render(<ProfilePage />);
+    expect(screen.getByLabelText('First Name')).toHaveValue('');
+    expect(screen.getByLabelText('Last Name')).toHaveValue('');
+    expect(screen.getByLabelText('Phone')).toHaveValue('');
   });
 });
