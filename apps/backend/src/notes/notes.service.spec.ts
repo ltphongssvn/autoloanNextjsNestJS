@@ -18,9 +18,20 @@ describe('NotesService', () => {
   describe('create', () => {
     it('should create a note', async () => {
       mockPrisma.application.findUnique.mockResolvedValue({ id: 1 });
-      mockPrisma.applicationNote.create.mockResolvedValue({ id: 1, content: 'Test note' });
+      mockPrisma.applicationNote.create.mockResolvedValue({ id: 1, note: 'Test note' });
       const result = await service.create(1, 1, 'Test note');
-      expect(result.content).toBe('Test note');
+      expect(result.note).toBe('Test note');
+      expect(mockPrisma.applicationNote.create).toHaveBeenCalledWith({
+        data: { applicationId: 1, userId: 1, note: 'Test note', internal: false },
+        include: { user: true },
+      });
+    });
+
+    it('should create an internal note', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue({ id: 1 });
+      mockPrisma.applicationNote.create.mockResolvedValue({ id: 1, note: 'Internal', internal: true });
+      const result = await service.create(1, 1, 'Internal', true);
+      expect(result.internal).toBe(true);
     });
 
     it('should throw NotFoundException if application not found', async () => {
@@ -31,7 +42,7 @@ describe('NotesService', () => {
 
   describe('findByApplication', () => {
     it('should return notes for application', async () => {
-      const notes = [{ id: 1, content: 'note1' }, { id: 2, content: 'note2' }];
+      const notes = [{ id: 1, note: 'note1' }, { id: 2, note: 'note2' }];
       mockPrisma.applicationNote.findMany.mockResolvedValue(notes);
       const result = await service.findByApplication(1);
       expect(result).toEqual(notes);
