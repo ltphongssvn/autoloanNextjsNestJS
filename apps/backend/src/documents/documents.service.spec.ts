@@ -19,18 +19,21 @@ describe('DocumentsService', () => {
     it('should create a document', async () => {
       mockPrisma.application.findUnique.mockResolvedValue({ id: 1, userId: 1 });
       mockPrisma.document.create.mockResolvedValue({ id: 1, fileName: 'test.pdf' });
-      const result = await service.upload(1, 1, 'test.pdf', 'id_document', '/uploads/test.pdf');
+      const result = await service.upload(1, 1, 'test.pdf', 'id_document' as any, '/uploads/test.pdf', 1024, 'application/pdf');
       expect(result.fileName).toBe('test.pdf');
+      expect(mockPrisma.document.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ fileName: 'test.pdf', docType: 'id_document', fileUrl: '/uploads/test.pdf' }),
+      });
     });
 
     it('should throw NotFoundException if application not found', async () => {
       mockPrisma.application.findUnique.mockResolvedValue(null);
-      await expect(service.upload(99, 1, 'f', 't', 'p')).rejects.toThrow(NotFoundException);
+      await expect(service.upload(99, 1, 'f', 'other' as any, 'p')).rejects.toThrow(NotFoundException);
     });
 
     it('should throw ForbiddenException if user does not own application', async () => {
       mockPrisma.application.findUnique.mockResolvedValue({ id: 1, userId: 2 });
-      await expect(service.upload(1, 1, 'f', 't', 'p')).rejects.toThrow(ForbiddenException);
+      await expect(service.upload(1, 1, 'f', 'other' as any, 'p')).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -49,6 +52,16 @@ describe('DocumentsService', () => {
       mockPrisma.document.update.mockResolvedValue({ id: 1, status: 'approved' });
       const result = await service.updateStatus(1, 'approved' as any);
       expect(result.status).toBe('approved');
+    });
+
+    it('should update with verifiedById and verifiedAt', async () => {
+      mockPrisma.document.findUnique.mockResolvedValue({ id: 1 });
+      mockPrisma.document.update.mockResolvedValue({ id: 1, status: 'approved', verifiedById: 2 });
+      const result = await service.updateStatus(1, 'approved' as any, 2);
+      expect(mockPrisma.document.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({ status: 'approved', verifiedById: 2, verifiedAt: expect.any(Date) }),
+      });
     });
 
     it('should throw NotFoundException if document not found', async () => {
