@@ -4,67 +4,59 @@ import { render, screen, fireEvent, act } from '@testing-library/react';
 import ToastContainer, { showToast } from './Toast';
 
 describe('ToastContainer', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.runOnlyPendingTimers();
-    vi.useRealTimers();
-  });
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); });
 
   it('should render nothing when no toasts', () => {
     render(<ToastContainer />);
     expect(screen.queryByTestId('toast-container')).toBeNull();
   });
 
-  it('should show a toast via showToast', () => {
+  it('should show a toast via showToast', async () => {
     render(<ToastContainer />);
-    act(() => showToast('Hello', 'info'));
+    await act(async () => { showToast('Hello', 'info'); });
     expect(screen.getByTestId('toast-container')).toBeInTheDocument();
     expect(screen.getByText('Hello')).toBeInTheDocument();
   });
 
-  it('should show success toast', () => {
+  it('should show success toast', async () => {
     render(<ToastContainer />);
-    act(() => showToast('Saved', 'success'));
+    await act(async () => { showToast('Saved', 'success'); });
     expect(screen.getByText('Saved')).toBeInTheDocument();
   });
 
-  it('should show error toast', () => {
+  it('should show error toast', async () => {
     render(<ToastContainer />);
-    act(() => showToast('Failed', 'error'));
+    await act(async () => { showToast('Failed', 'error'); });
     expect(screen.getByText('Failed')).toBeInTheDocument();
   });
 
   it('should auto-dismiss after 4 seconds', async () => {
     render(<ToastContainer />);
-    act(() => showToast('Temp', 'info'));
+    await act(async () => { showToast('Temp', 'info'); });
     expect(screen.getByText('Temp')).toBeInTheDocument();
-    act(() => vi.advanceTimersByTime(4100));
+    await act(async () => { vi.advanceTimersByTime(4100); });
     expect(screen.queryByText('Temp')).toBeNull();
   });
 
-  it('should dismiss on click', () => {
+  it('should dismiss on click', async () => {
     render(<ToastContainer />);
-    act(() => showToast('Dismiss me', 'info'));
-    fireEvent.click(screen.getByLabelText('Dismiss'));
+    await act(async () => { showToast('Dismiss me', 'info'); });
+    await act(async () => { fireEvent.click(screen.getByLabelText('Dismiss')); });
     expect(screen.queryByText('Dismiss me')).toBeNull();
   });
 
-  it('should show multiple toasts', () => {
+  it('should show multiple toasts', async () => {
     render(<ToastContainer />);
-    act(() => {
-      showToast('First', 'info');
-      showToast('Second', 'success');
-    });
+    await act(async () => { showToast('First', 'info'); });
+    await act(async () => { showToast('Second', 'success'); });
     expect(screen.getAllByTestId('toast')).toHaveLength(2);
   });
 
-  it('should not call addToastFn when unmounted', () => {
+  it('should not call addToastFn when unmounted', async () => {
     const { unmount } = render(<ToastContainer />);
     unmount();
-    act(() => showToast('Should not appear', 'info'));
+    await act(async () => { showToast('Should not appear', 'info'); });
     expect(screen.queryByTestId('toast-container')).toBeNull();
   });
 });
