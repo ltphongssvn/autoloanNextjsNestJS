@@ -5,7 +5,7 @@ import ToastContainer, { showToast } from './Toast';
 
 describe('ToastContainer', () => {
   beforeEach(() => vi.useFakeTimers());
-  afterEach(() => { vi.runOnlyPendingTimers(); vi.useRealTimers(); });
+  afterEach(() => { vi.clearAllTimers(); vi.useRealTimers(); });
 
   it('should render nothing when no toasts', () => {
     render(<ToastContainer />);
