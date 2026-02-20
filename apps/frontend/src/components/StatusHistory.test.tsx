@@ -24,7 +24,7 @@ describe('StatusHistoryList', () => {
     ]});
     render(<StatusHistoryList applicationId={1} />);
     await waitFor(() => expect(screen.getAllByTestId('history-entry')).toHaveLength(2));
-    expect(screen.getByText('— Submitted')).toBeInTheDocument();
+    expect(screen.getByText('Submitted')).toBeInTheDocument();
   });
 
   it('should render with array response', async () => {
