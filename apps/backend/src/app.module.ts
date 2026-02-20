@@ -8,6 +8,7 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth';
 import { ApplicationsModule } from './applications';
 import { DocumentsModule } from './documents';
+import { NotesModule } from './notes';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { DocumentsModule } from './documents';
     AuthModule,
     ApplicationsModule,
     DocumentsModule,
+    NotesModule,
   ],
   controllers: [AppController],
   providers: [
