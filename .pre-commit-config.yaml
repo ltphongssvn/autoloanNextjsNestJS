@@ -51,7 +51,7 @@ repos:
 
       - id: check-large-files
         name: Check for Large Files
-        entry: bash -c 'for f in "$@"; do case "$f" in */package-lock.json) continue;; esac; size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null); if [ "$size" -gt 512000 ]; then echo "File too large ${size}B $f"; exit 1; fi; done' --
+        entry: bash -c 'for f in "$@"; do base=$(basename "$f"); case "$base" in package-lock.json) continue;; esac; size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null); if [ "$size" -gt 512000 ]; then echo "File too large ${size}B $f"; exit 1; fi; done' --
         language: system
         types: [file]
 
