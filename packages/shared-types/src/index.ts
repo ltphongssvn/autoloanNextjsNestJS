@@ -22,20 +22,25 @@ export interface Application {
   application_number: string;
   status: ApplicationStatus;
   current_step: number;
-  personal_info: Record<string, unknown>;
-  car_details: Record<string, unknown>;
-  loan_details: Record<string, unknown>;
-  employment_info: Record<string, unknown>;
+  dob: string | null;
+  ssn_encrypted: string | null;
+  loan_amount: string | null;
+  down_payment: string | null;
   loan_term: number | null;
   interest_rate: string | null;
   monthly_payment: string | null;
-  submitted_at: string | null;
-  decided_at: string | null;
+  rejection_reason: string | null;
   signature_data: string | null;
   signed_at: string | null;
   agreement_accepted: boolean | null;
+  submitted_at: string | null;
+  decided_at: string | null;
   created_at: string;
   updated_at: string;
+  addresses?: Address[];
+  vehicles?: Vehicle[];
+  financial_infos?: FinancialInfo[];
+  documents?: LoanDocument[];
   links?: ApplicationLinks;
 }
 
@@ -54,6 +59,45 @@ export interface ApplicationLinks {
   submit?: string;
   sign?: string;
   agreement_pdf?: string;
+}
+
+// ── Address ──
+export interface Address {
+  id: number;
+  address_type: string;
+  street_address: string;
+  city: string;
+  state: string;
+  zip_code: string;
+  years_at_address: number | null;
+  months_at_address: number | null;
+}
+
+// ── Vehicle ──
+export interface Vehicle {
+  id: number;
+  make: string;
+  model: string;
+  year: number;
+  vin: string;
+  condition: string | null;
+  estimated_value: string | null;
+  mileage: number | null;
+}
+
+// ── FinancialInfo ──
+export interface FinancialInfo {
+  id: number;
+  income_type: string | null;
+  employer_name: string | null;
+  job_title: string | null;
+  employment_status: string | null;
+  years_employed: number | null;
+  months_employed: number | null;
+  annual_income: string | null;
+  monthly_income: string | null;
+  monthly_expenses: string | null;
+  credit_score: number | null;
 }
 
 // ── Document ──
@@ -82,6 +126,16 @@ export type DocumentType =
   | 'other';
 
 export type DocumentStatus = 'pending' | 'verified' | 'rejected' | 'requested';
+
+// ── StatusHistory ──
+export interface StatusHistory {
+  id: number;
+  from_status: string | null;
+  to_status: string | null;
+  comment: string | null;
+  user_id: number;
+  created_at: string;
+}
 
 // ── API ──
 export interface ApiResponse<T> {

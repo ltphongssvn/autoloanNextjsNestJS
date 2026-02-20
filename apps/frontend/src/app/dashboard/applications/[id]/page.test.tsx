@@ -29,7 +29,8 @@ const baseApp = {
   id: 1,
   application_number: 'AL-000001',
   status: 'submitted',
-  loan_details: { amount: 25000, down_payment: 5000 },
+  loan_amount: '25000.00',
+  down_payment: '5000.00',
   loan_term: 60,
 };
 
@@ -149,7 +150,7 @@ describe('ApplicationDetailPage', () => {
   });
 
   it('should show N/A for missing loan fields', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, loan_details: {}, loan_term: null } });
+    mockGet.mockResolvedValue({ data: { ...baseApp, loan_amount: null, down_payment: null, loan_term: null } });
     render(<ApplicationDetailPage />);
     await waitFor(() => expect(screen.getByTestId('loan-amount')).toHaveTextContent('N/A'));
     expect(screen.getByTestId('down-payment')).toHaveTextContent('N/A');
