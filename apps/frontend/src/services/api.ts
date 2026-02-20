@@ -1,5 +1,5 @@
 // apps/frontend/src/services/api.ts
-import type { ApiResponse, Application, User } from '@autoloan/shared-types';
+import type { ApiResponse, Application, User, SignupData } from '@autoloan/shared-types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
@@ -30,7 +30,7 @@ export const api = {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       }),
-    signup: (data: Record<string, string>) =>
+    signup: (data: SignupData | Record<string, string>) =>
       request<ApiResponse<{ token: string; user: User }>>('/auth/signup', {
         method: 'POST',
         body: JSON.stringify(data),
