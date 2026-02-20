@@ -1,86 +1,93 @@
-<!-- README.md -->
-<!-- Project: autoloanNextjsNestJS (Auto Loan App - Next.js + NestJS Full-Stack) -->
-# Auto Loan App — Next.js + NestJS TypeScript Full-Stack
+# AutoLoan – Next.js + NestJS Monorepo
 
-A monorepo auto loan application with strict TypeScript end-to-end.
+A full-stack auto loan application system built with a strict TypeScript monorepo architecture.
 
 ## Architecture
 ```
 autoloanNextjsNestJS/
 ├── apps/
-│   ├── frontend/          # Next.js 16 (App Router, React 19, MUI, Tailwind)
-│   └── backend/           # NestJS 11 (REST API, Prisma, JWT Auth)
+│   ├── frontend/          # Next.js 16 (App Router, Tailwind CSS)
+│   └── backend/           # NestJS 11 (REST API, Prisma ORM)
 ├── packages/
-│   └── shared-types/      # Shared TypeScript interfaces & types
+│   └── shared-types/      # Shared TypeScript interfaces & enums
 ├── .pre-commit-config.yaml
-├── SECURITY.md
-└── package.json           # npm workspaces root
+├── .secrets.baseline
+└── SECURITY.md
 ```
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 16, React 19, MUI 7, Tailwind CSS 4 |
-| Backend | NestJS 11, Prisma 6, PostgreSQL |
-| Auth | JWT (@nestjs/jwt, @nestjs/passport) |
-| Security | Helmet, ThrottlerModule, class-validator DTOs |
-| Testing | Jest (backend), Vitest (frontend), 80% per-file threshold |
-| Shared | @autoloan/shared-types (single source of truth) |
-| Language | TypeScript strict mode everywhere |
+| Layer       | Technology                          |
+|-------------|-------------------------------------|
+| Frontend    | Next.js 16, React 19, TypeScript    |
+| Backend     | NestJS 11, Prisma 6, PostgreSQL     |
+| Auth        | JWT (passport-jwt), bcryptjs, RBAC  |
+| Testing     | Jest (backend), Vitest (frontend)   |
+| Security    | detect-secrets, helmet, throttler   |
+
+## Backend Modules
+
+| Module       | Endpoints                                         |
+|--------------|---------------------------------------------------|
+| Auth         | POST /auth, POST /auth/signup, POST /auth/logout  |
+| Applications | CRUD + PATCH status with role-based access         |
+| Documents    | Upload, list, status update per application        |
+| Notes        | Create, list per application (staff only)          |
+| Users        | GET /users/me, PATCH /users/me                     |
+| Health       | GET /health                                        |
+
+## Frontend Pages
+
+| Route                              | Description                 |
+|------------------------------------|-----------------------------|
+| /                                  | Landing page                |
+| /login                             | Login form                  |
+| /signup                            | Registration form           |
+| /dashboard                         | Applications list           |
+| /dashboard/applications/new        | New loan application form   |
+| /dashboard/applications/[id]       | Application detail + actions|
 
 ## Quick Start
 ```bash
-# Install all dependencies
+# Install dependencies
 npm install
 
 # Generate Prisma client
 cd apps/backend && npx prisma generate && cd ../..
 
-# Run both apps in development
+# Set up environment
+cp apps/backend/.env.example apps/backend/.env
+cp apps/frontend/.env.example apps/frontend/.env
+
+# Run development
 npm run dev
 
 # Run all tests
 npm test
-
-# Run tests with coverage
-cd apps/backend && npx jest --coverage && cd ../..
-cd apps/frontend && npx vitest run --coverage && cd ../..
 ```
 
-## Environment Setup
+## Test Coverage
 
-Copy example env files:
-```bash
-cp apps/backend/.env.example apps/backend/.env
-cp apps/frontend/.env.example apps/frontend/.env.local
-```
-
-Edit with your values. See [SECURITY.md](./SECURITY.md) for details.
+- **Backend**: 123 tests, 100% coverage (Jest, 80% per-file threshold enforced)
+- **Frontend**: 76 tests, 97%+ coverage (Vitest, 80% per-file threshold enforced)
+- **Total**: 199 tests
 
 ## Pre-commit Hooks
-```bash
-# Install hooks (run once after cloning)
-pre-commit install
-pre-commit install --hook-type pre-push
 
-# Manual check
-pre-commit run --all-files
-```
+| Hook                    | Stage      | Description                      |
+|-------------------------|------------|----------------------------------|
+| detect-secrets          | pre-commit | Scan for leaked secrets          |
+| block-large-binaries    | pre-commit | Block .h5, .pkl, .pth, etc.     |
+| block-env-files         | pre-commit | Block .env (allow .env.example)  |
+| fix-line-endings        | pre-commit | Normalize to LF                  |
+| trailing-whitespace     | pre-commit | Remove trailing whitespace       |
+| validate-json/yaml      | pre-commit | Syntax validation                |
+| eslint-frontend         | pre-commit | ESLint zero warnings             |
+| typescript-check-backend| pre-commit | tsc --noEmit                     |
+| test-backend/frontend   | pre-commit | Run test suites                  |
+| coverage-backend/frontend| pre-push  | Enforce 80% thresholds           |
+| build-backend/frontend  | pre-push   | Verify production builds         |
 
-## Scripts
+## Environment Variables
 
-| Command | Description |
-|---------|------------|
-| `npm test` | Run all tests (backend + frontend) |
-| `npm run dev` | Start both apps in dev mode |
-| `npm run build` | Build all workspaces |
-| `npm run lint` | Lint all workspaces |
-
-## Coverage Thresholds
-
-Both apps enforce **80% minimum per-file** coverage for:
-- Statements
-- Branches
-- Functions
-- Lines
+See `apps/backend/.env.example` and `apps/frontend/.env.example`.
