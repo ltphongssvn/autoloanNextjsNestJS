@@ -1,7 +1,8 @@
 // apps/backend/src/app.module.ts
 import { Module } from '@nestjs/common';
-import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
+import { CustomThrottlerGuard } from './throttler.guard';
 import { PrismaService } from './prisma.service';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -31,7 +32,7 @@ import { UsersModule } from './users';
     PrismaService,
     {
       provide: APP_GUARD,
-      useClass: ThrottlerGuard,
+      useClass: CustomThrottlerGuard,
     },
   ],
   exports: [PrismaService],
