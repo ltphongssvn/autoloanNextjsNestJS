@@ -16,10 +16,17 @@ describe('NotesController', () => {
   });
 
   it('should create a note', async () => {
-    mockService.create.mockResolvedValue({ id: 1, content: 'Note' });
-    const result = await controller.create(1, mockReq(), 'Note');
-    expect(mockService.create).toHaveBeenCalledWith(1, 1, 'Note');
-    expect(result.content).toBe('Note');
+    mockService.create.mockResolvedValue({ id: 1, note: 'Note' });
+    const result = await controller.create(1, mockReq(), { note: 'Note' });
+    expect(mockService.create).toHaveBeenCalledWith(1, 1, 'Note', undefined);
+    expect(result.note).toBe('Note');
+  });
+
+  it('should create an internal note', async () => {
+    mockService.create.mockResolvedValue({ id: 1, note: 'Internal', internal: true });
+    const result = await controller.create(1, mockReq(), { note: 'Internal', internal: true });
+    expect(mockService.create).toHaveBeenCalledWith(1, 1, 'Internal', true);
+    expect(result.internal).toBe(true);
   });
 
   it('should list notes', async () => {
