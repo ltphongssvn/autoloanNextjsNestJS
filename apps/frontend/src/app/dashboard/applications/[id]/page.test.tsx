@@ -129,3 +129,31 @@ describe('ApplicationDetailPage', () => {
     expect(mockBack).toHaveBeenCalled();
   });
 });
+
+  it('should handle approve status update', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'underwriter' } });
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'under_review' } });
+    mockUpdateStatus.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'approved'));
+  });
+
+  it('should handle reject status update', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'underwriter' } });
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'under_review' } });
+    mockUpdateStatus.mockResolvedValue({ data: { ...baseApp, status: 'rejected' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Reject')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Reject'));
+    await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'rejected'));
+  });
+
+  it('should show N/A for missing loan fields', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, loan_amount: null, down_payment: null, loan_term: null } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByTestId('loan-amount')).toHaveTextContent('N/A'));
+    expect(screen.getByTestId('down-payment')).toHaveTextContent('N/A');
+    expect(screen.getByTestId('loan-term')).toHaveTextContent('N/A');
+  });
