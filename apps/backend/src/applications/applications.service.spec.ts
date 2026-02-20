@@ -2,6 +2,7 @@
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { ApplicationsService } from './applications.service';
 import { PrismaService } from '../prisma.service';
+import { NotificationsService } from '../notifications';
 
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
@@ -16,10 +17,24 @@ describe('ApplicationsService', () => {
     statusHistory: {
       create: jest.fn(),
     },
+    user: {
+      findUnique: jest.fn(),
+    },
+  };
+  const mockNotifications = {
+    notifyStatusChange: jest.fn().mockResolvedValue(true),
+    notifyApplicationApproved: jest.fn().mockResolvedValue(true),
+    notifyApplicationRejected: jest.fn().mockResolvedValue(true),
+    notifyApplicationSubmitted: jest.fn().mockResolvedValue(true),
+    notifyDocumentUploaded: jest.fn().mockResolvedValue(true),
+    sendEmail: jest.fn().mockResolvedValue(true),
   };
 
   beforeEach(() => {
-    service = new ApplicationsService(mockPrisma as unknown as PrismaService);
+    service = new ApplicationsService(
+      mockPrisma as unknown as PrismaService,
+      mockNotifications as unknown as NotificationsService,
+    );
     jest.clearAllMocks();
   });
 
@@ -89,28 +104,53 @@ describe('ApplicationsService', () => {
   });
 
   describe('updateStatus', () => {
-    it('should update status and create history', async () => {
-      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, status: 'draft' });
+    it('should update status and send notification', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, status: 'draft', userId: 1, applicationNumber: 'AL-000001' });
       mockPrisma.application.update.mockResolvedValue({ id: 1, status: 'submitted' });
       mockPrisma.statusHistory.create.mockResolvedValue({});
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'test@test.com' });
 
       const result = await service.updateStatus(1, 'submitted' as any, 1);
       expect(result.status).toBe('submitted');
       expect(mockPrisma.statusHistory.create).toHaveBeenCalledWith({
         data: expect.objectContaining({ fromStatus: 'draft', toStatus: 'submitted' }),
       });
+      expect(mockNotifications.notifyStatusChange).toHaveBeenCalledWith('test@test.com', 'AL-000001', 'draft', 'submitted');
     });
 
-    it('should set decidedAt for approved status', async () => {
-      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, status: 'under_review' });
+    it('should set decidedAt and notify approved', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, status: 'under_review', userId: 1, applicationNumber: 'AL-000001' });
       mockPrisma.application.update.mockResolvedValue({ id: 1, status: 'approved' });
       mockPrisma.statusHistory.create.mockResolvedValue({});
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'test@test.com' });
 
       await service.updateStatus(1, 'approved' as any, 1);
       expect(mockPrisma.application.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: expect.objectContaining({ status: 'approved', decidedAt: expect.any(Date) }),
       });
+      expect(mockNotifications.notifyApplicationApproved).toHaveBeenCalledWith('test@test.com', 'AL-000001');
+    });
+
+    it('should send rejection notification', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, status: 'under_review', userId: 1, applicationNumber: 'AL-000001' });
+      mockPrisma.application.update.mockResolvedValue({ id: 1, status: 'rejected' });
+      mockPrisma.statusHistory.create.mockResolvedValue({});
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'test@test.com' });
+
+      await service.updateStatus(1, 'rejected' as any, 1);
+      expect(mockNotifications.notifyApplicationRejected).toHaveBeenCalledWith('test@test.com', 'AL-000001');
+    });
+
+    it('should skip notification if user not found', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, status: 'draft', userId: 1, applicationNumber: 'AL-000001' });
+      mockPrisma.application.update.mockResolvedValue({ id: 1, status: 'submitted' });
+      mockPrisma.statusHistory.create.mockResolvedValue({});
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+
+      const result = await service.updateStatus(1, 'submitted' as any, 1);
+      expect(result.status).toBe('submitted');
+      expect(mockNotifications.notifyStatusChange).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when app not found', async () => {

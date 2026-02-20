@@ -3,10 +3,14 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma.service';
 import { CreateApplicationDto } from './create-application.dto';
 import { ApplicationStatus } from '@prisma/client';
+import { NotificationsService } from '../notifications';
 
 @Injectable()
 export class ApplicationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   async create(userId: number, dto: CreateApplicationDto) {
     const count = await this.prisma.application.count({ where: { userId } });
@@ -78,6 +82,18 @@ export class ApplicationsService {
         toStatus: status,
       },
     });
+    // Send notification
+    const user = await this.prisma.user.findUnique({ where: { id: application.userId } });
+    if (user?.email) {
+      if (status === 'approved') {
+        await this.notifications.notifyApplicationApproved(user.email, application.applicationNumber ?? '');
+      } else if (status === 'rejected') {
+        await this.notifications.notifyApplicationRejected(user.email, application.applicationNumber ?? '');
+      } else {
+        await this.notifications.notifyStatusChange(user.email, application.applicationNumber ?? '', fromStatus, status);
+      }
+    }
+
     return updated;
   }
 }
