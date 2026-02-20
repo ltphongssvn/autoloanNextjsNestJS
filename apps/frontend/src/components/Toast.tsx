@@ -1,7 +1,7 @@
 // apps/frontend/src/components/Toast.tsx
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export type ToastType = 'success' | 'error' | 'info';
 
@@ -11,6 +11,7 @@ interface ToastMessage {
   type: ToastType;
 }
 
+let toastCounter = 0;
 let addToastFn: ((message: string, type: ToastType) => void) | null = null;
 
 export function showToast(message: string, type: ToastType = 'info') {
@@ -19,21 +20,25 @@ export function showToast(message: string, type: ToastType = 'info') {
 
 export default function ToastContainer() {
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+  const timersRef = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+
+  const removeToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+    const timer = timersRef.current.get(id);
+    if (timer) { clearTimeout(timer); timersRef.current.delete(id); }
+  }, []);
 
   const addToast = useCallback((message: string, type: ToastType) => {
-    const id = Date.now();
+    const id = ++toastCounter;
     setToasts((prev) => [...prev, { id, message, type }]);
-    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 4000);
-  }, []);
+    const timer = setTimeout(() => removeToast(id), 4000);
+    timersRef.current.set(id, timer);
+  }, [removeToast]);
 
   useEffect(() => {
     addToastFn = addToast;
     return () => { addToastFn = null; };
   }, [addToast]);
-
-  const removeToast = (id: number) => {
-    setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
 
   const bgColor = (type: ToastType) => {
     if (type === 'success') return '#16a34a';
