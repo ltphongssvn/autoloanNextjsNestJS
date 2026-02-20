@@ -11,6 +11,7 @@ import { ApplicationsModule } from './applications';
 import { DocumentsModule } from './documents';
 import { NotesModule } from './notes';
 import { UsersModule } from './users';
+import { NotificationsModule } from './notifications';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { UsersModule } from './users';
     DocumentsModule,
     NotesModule,
     UsersModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [
