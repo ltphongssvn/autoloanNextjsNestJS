@@ -1,4 +1,15 @@
 // apps/backend/src/main.spec.ts
+const mockApp = {
+  setGlobalPrefix: jest.fn(),
+  enableCors: jest.fn(),
+  useGlobalFilters: jest.fn(),
+  listen: jest.fn().mockResolvedValue(undefined),
+};
+
+jest.mock('@nestjs/core', () => ({
+  NestFactory: { create: jest.fn().mockResolvedValue(mockApp) },
+}));
+
 jest.mock('@nestjs/swagger', () => ({
   DocumentBuilder: jest.fn().mockReturnValue({
     setTitle: jest.fn().mockReturnThis(),
@@ -17,32 +28,21 @@ jest.mock('./http-exception.filter', () => ({
   GlobalExceptionFilter: jest.fn(),
 }));
 
-const mockApp = {
-  setGlobalPrefix: jest.fn(),
-  enableCors: jest.fn(),
-  useGlobalFilters: jest.fn(),
-  listen: jest.fn().mockResolvedValue(undefined),
-};
-
-jest.mock('@nestjs/core', () => ({
-  NestFactory: {
-    create: jest.fn().mockResolvedValue(mockApp),
-  },
-}));
-
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
+import { bootstrap } from './main';
 
 describe('Bootstrap', () => {
+  beforeEach(() => jest.clearAllMocks());
+
   it('should create app and configure with Swagger', async () => {
-    await import('./main');
-    await new Promise((r) => setTimeout(r, 200));
+    await bootstrap();
     expect(NestFactory.create).toHaveBeenCalledTimes(1);
     expect(mockApp.setGlobalPrefix).toHaveBeenCalledWith('api/v1');
     expect(mockApp.enableCors).toHaveBeenCalled();
     expect(mockApp.useGlobalFilters).toHaveBeenCalled();
-    expect(mockApp.listen).toHaveBeenCalled();
+    expect(mockApp.listen).toHaveBeenCalledWith(3001);
     expect(SwaggerModule.createDocument).toHaveBeenCalled();
     expect(SwaggerModule.setup).toHaveBeenCalledWith('api/docs', mockApp, expect.any(Object));
-  }, 15000);
+  });
 });
