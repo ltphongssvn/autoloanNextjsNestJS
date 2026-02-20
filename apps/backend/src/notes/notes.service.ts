@@ -6,14 +6,14 @@ import { PrismaService } from '../prisma.service';
 export class NotesService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(applicationId: number, userId: number, content: string) {
+  async create(applicationId: number, userId: number, note: string, internal = false) {
     const application = await this.prisma.application.findUnique({ where: { id: applicationId } });
     if (!application) {
       throw new NotFoundException(`Application #${applicationId} not found`);
     }
 
     return this.prisma.applicationNote.create({
-      data: { applicationId, userId, content },
+      data: { applicationId, userId, note, internal },
       include: { user: true },
     });
   }
