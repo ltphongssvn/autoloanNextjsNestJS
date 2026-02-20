@@ -14,6 +14,10 @@ describe('AppModule', () => {
     }).compile();
   });
 
+  afterEach(async () => {
+    await module.close();
+  });
+
   it('should compile the module', () => {
     expect(module).toBeDefined();
   });
