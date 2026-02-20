@@ -1,18 +1,21 @@
-# AutoLoan – Next.js + NestJS Monorepo
+# AutoLoan - Full-Stack Loan Application Platform
 
-A full-stack auto loan application system built with a strict TypeScript monorepo architecture.
+A monorepo auto loan application built with **Next.js 16** (frontend) and **NestJS 11** (backend), using **Prisma 6** ORM with PostgreSQL.
 
 ## Architecture
 ```
 autoloanNextjsNestJS/
 ├── apps/
-│   ├── frontend/          # Next.js 16 (App Router, Tailwind CSS)
-│   └── backend/           # NestJS 11 (REST API, Prisma ORM)
+│   ├── backend/          # NestJS 11 REST API
+│   │   ├── prisma/       # Schema, migrations, seed
+│   │   └── src/          # Modules: auth, applications, documents, notes, users
+│   └── frontend/         # Next.js 16 (App Router)
+│       └── src/          # Pages, components, services, context
 ├── packages/
-│   └── shared-types/      # Shared TypeScript interfaces & enums
-├── .pre-commit-config.yaml
-├── .secrets.baseline
-└── SECURITY.md
+│   └── shared-types/     # TypeScript interfaces shared across apps
+├── Dockerfile.backend
+├── Dockerfile.frontend
+└── docker-compose.yml
 ```
 
 ## Tech Stack
@@ -20,74 +23,99 @@ autoloanNextjsNestJS/
 | Layer       | Technology                          |
 |-------------|-------------------------------------|
 | Frontend    | Next.js 16, React 19, TypeScript    |
-| Backend     | NestJS 11, Prisma 6, PostgreSQL     |
-| Auth        | JWT (passport-jwt), bcryptjs, RBAC  |
+| Backend     | NestJS 11, TypeScript               |
+| ORM         | Prisma 6                            |
+| Database    | PostgreSQL 16                       |
+| Auth        | JWT (passport-jwt), bcryptjs        |
+| API Docs    | Swagger/OpenAPI at `/api/docs`      |
 | Testing     | Jest (backend), Vitest (frontend)   |
-| Security    | detect-secrets, helmet, throttler   |
-
-## Backend Modules
-
-| Module       | Endpoints                                         |
-|--------------|---------------------------------------------------|
-| Auth         | POST /auth, POST /auth/signup, POST /auth/logout  |
-| Applications | CRUD + PATCH status with role-based access         |
-| Documents    | Upload, list, status update per application        |
-| Notes        | Create, list per application (staff only)          |
-| Users        | GET /users/me, PATCH /users/me                     |
-| Health       | GET /health                                        |
-
-## Frontend Pages
-
-| Route                              | Description                 |
-|------------------------------------|-----------------------------|
-| /                                  | Landing page                |
-| /login                             | Login form                  |
-| /signup                            | Registration form           |
-| /dashboard                         | Applications list           |
-| /dashboard/applications/new        | New loan application form   |
-| /dashboard/applications/[id]       | Application detail + actions|
+| CI Quality  | pre-commit hooks, 80%+ coverage     |
 
 ## Quick Start
+
+### Prerequisites
+- Node.js 20+
+- PostgreSQL 16+
+- npm 10+
+
+### Setup
 ```bash
-# Install dependencies
+# Clone and install
+git clone https://github.com/ltphongssvn/autoloanNextjsNestJS.git
+cd autoloanNextjsNestJS
 npm install
 
-# Generate Prisma client
-cd apps/backend && npx prisma generate && cd ../..
-
-# Set up environment
+# Configure environment
 cp apps/backend/.env.example apps/backend/.env
-cp apps/frontend/.env.example apps/frontend/.env
+# Edit DATABASE_URL, JWT_SECRET in .env
 
-# Run development
-npm run dev
+# Database setup
+cd apps/backend
+npx prisma migrate dev
+npx prisma db seed
 
-# Run all tests
-npm test
+# Run development servers
+npm run dev          # Both frontend (3000) + backend (3001)
 ```
 
-## Test Coverage
+### Docker
+```bash
+docker compose up --build
+# Frontend: http://localhost:3000
+# Backend:  http://localhost:3001
+# API Docs: http://localhost:3001/api/docs
+```
 
-- **Backend**: 123 tests, 100% coverage (Jest, 80% per-file threshold enforced)
-- **Frontend**: 76 tests, 97%+ coverage (Vitest, 80% per-file threshold enforced)
-- **Total**: 199 tests
+## Test Accounts (after seeding)
+
+| Email                      | Password      | Role         |
+|----------------------------|---------------|--------------|
+| ltphongssvn@gmail.com      | password123   | customer     |
+| tiffany.chen@example.com   | password123   | customer     |
+| joseph.nguyen@example.com  | password123   | customer     |
+| officer@example.com        | password123   | loan_officer |
+| underwriter@example.com    | password123   | underwriter  |
+
+## API Endpoints
+
+| Method | Endpoint                          | Auth     | Description              |
+|--------|-----------------------------------|----------|--------------------------|
+| POST   | `/api/v1/auth/login`              | Public   | Login                    |
+| POST   | `/api/v1/auth/signup`             | Public   | Register                 |
+| GET    | `/api/v1/applications`            | JWT      | List applications        |
+| POST   | `/api/v1/applications`            | Customer | Create application       |
+| GET    | `/api/v1/applications/:id`        | JWT      | Get application detail   |
+| PATCH  | `/api/v1/applications/:id/status` | Staff    | Update status            |
+| GET    | `/api/v1/applications/:id/history`| JWT      | Status change history    |
+| GET    | `/api/v1/users/me`                | JWT      | Current user profile     |
+| PATCH  | `/api/v1/users/me`                | JWT      | Update profile           |
+
+## Testing
+```bash
+# Backend tests with coverage
+cd apps/backend && npx jest --coverage
+
+# Frontend tests with coverage
+cd apps/frontend && npx vitest run --coverage
+
+# Run all via pre-commit hooks
+git commit  # Triggers lint, typecheck, tests automatically
+```
+
+## Coverage
+
+- **Backend**: 128 tests, 100% statements, 98%+ branches
+- **Frontend**: 97 tests, 99%+ statements, 95%+ branches
+- **Per-file threshold**: 80% enforced via CI hooks
 
 ## Pre-commit Hooks
 
-| Hook                    | Stage      | Description                      |
-|-------------------------|------------|----------------------------------|
-| detect-secrets          | pre-commit | Scan for leaked secrets          |
-| block-large-binaries    | pre-commit | Block .h5, .pkl, .pth, etc.     |
-| block-env-files         | pre-commit | Block .env (allow .env.example)  |
-| fix-line-endings        | pre-commit | Normalize to LF                  |
-| trailing-whitespace     | pre-commit | Remove trailing whitespace       |
-| validate-json/yaml      | pre-commit | Syntax validation                |
-| eslint-frontend         | pre-commit | ESLint zero warnings             |
-| typescript-check-backend| pre-commit | tsc --noEmit                     |
-| test-backend/frontend   | pre-commit | Run test suites                  |
-| coverage-backend/frontend| pre-push  | Enforce 80% thresholds           |
-| build-backend/frontend  | pre-push   | Verify production builds         |
+- `detect-secrets` — blocks credential leaks
+- `ESLint` — frontend linting (zero warnings)
+- `TypeScript` — backend type checking
+- `Jest/Vitest` — unit tests with bail
+- **Pre-push**: coverage enforcement + production builds
 
-## Environment Variables
+## License
 
-See `apps/backend/.env.example` and `apps/frontend/.env.example`.
+MIT
