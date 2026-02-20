@@ -20,9 +20,9 @@ export class NotesController {
   create(
     @Param('applicationId', ParseIntPipe) applicationId: number,
     @Req() req: AuthenticatedRequest,
-    @Body('content') content: string,
+    @Body() body: { note: string; internal?: boolean },
   ) {
-    return this.notesService.create(applicationId, req.user.sub, content);
+    return this.notesService.create(applicationId, req.user.sub, body.note, body.internal);
   }
 
   @Get()
