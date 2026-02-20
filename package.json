@@ -8,11 +8,23 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspace=apps/frontend & npm run dev --workspace=apps/backend",
-    "build": "npm run build --workspaces",
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "build": "npm run build:backend && npm run build:frontend",
     "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
-    "format": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "test": "npm run test:backend && npm run test:frontend",
+    "format": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "dev:backend": "npm run --workspace=apps/backend start:dev",
+    "dev:frontend": "npm run --workspace=apps/frontend dev",
+    "build:backend": "npm run --workspace=apps/backend build",
+    "build:frontend": "npm run --workspace=apps/frontend build",
+    "test:backend": "npm run --workspace=apps/backend test",
+    "test:frontend": "npm run --workspace=apps/frontend test",
+    "test:coverage": "npm run test:coverage:backend && npm run test:coverage:frontend",
+    "test:coverage:backend": "cd apps/backend && npx jest --coverage",
+    "test:coverage:frontend": "cd apps/frontend && npx vitest run --coverage",
+    "db:migrate": "cd apps/backend && npx prisma migrate dev",
+    "db:seed": "cd apps/backend && npx prisma db seed",
+    "db:studio": "cd apps/backend && npx prisma studio"
   },
   "engines": {
     "node": ">=22.0.0",
