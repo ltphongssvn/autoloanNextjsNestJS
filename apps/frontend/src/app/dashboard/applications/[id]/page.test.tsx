@@ -19,6 +19,11 @@ vi.mock('../../../../services/api', () => ({
       updateStatus: (...args: unknown[]) => mockUpdateStatus(...args),
       history: (...args: unknown[]) => mockHistory(...args),
     },
+    documents: {
+      list: vi.fn().mockResolvedValue({ data: [] }),
+      upload: vi.fn(),
+      updateStatus: vi.fn(),
+    },
     notes: {
       list: vi.fn().mockResolvedValue({ data: [] }),
       create: vi.fn(),
@@ -179,6 +184,12 @@ describe('ApplicationDetailPage', () => {
   it('should render Notes section', async () => {
     mockGet.mockResolvedValue({ data: baseApp });
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('No notes yet.')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('No documents uploaded yet.')).toBeInTheDocument());
   });
 });
+
+  it('should render Documents section', async () => {
+    mockGet.mockResolvedValue({ data: baseApp });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Documents')).toBeInTheDocument());
+  });

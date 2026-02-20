@@ -7,6 +7,7 @@ import { useAuth } from '../../../../context/AuthContext';
 import { api } from '../../../../services/api';
 import StatusHistoryList from '../../../../components/StatusHistory';
 import NotesList from '../../../../components/NotesList';
+import DocumentUpload from '../../../../components/DocumentUpload';
 import type { Application } from '@autoloan/shared-types';
 
 export default function ApplicationDetailPage() {
@@ -74,6 +75,7 @@ export default function ApplicationDetailPage() {
         </section>
       )}
       <StatusHistoryList applicationId={Number(id)} />
+      <DocumentUpload applicationId={Number(id)} />
       <NotesList applicationId={Number(id)} />
     </main>
   );
