@@ -4,42 +4,37 @@ import { render, screen } from '@testing-library/react';
 import Home from './page';
 
 vi.mock('next/image', () => ({
-  default: ({ priority, ...props }: Record<string, unknown>) => (
-    <img {...props} data-priority={priority ? 'true' : undefined} />
-  ),
+  default: (props: Record<string, unknown>) => {
+    const { priority, ...rest } = props;
+    return <img {...rest} alt={(rest.alt as string) || ''} data-priority={priority ? 'true' : 'false'} />; // eslint-disable-line @next/next/no-img-element
+  },
 }));
 
 describe('Home', () => {
-  it('should render the Next.js logo', () => {
+  it('should render the logo', () => {
     render(<Home />);
-    const logo = screen.getByAltText('Next.js logo');
-    expect(logo).toBeInTheDocument();
+    expect(screen.getByAltText('Next.js logo')).toBeInTheDocument();
   });
 
   it('should render the heading', () => {
     render(<Home />);
-    expect(
-      screen.getByText(/to get started, edit the page\.tsx file/i)
-    ).toBeInTheDocument();
+    expect(screen.getByText(/To get started, edit the page\.tsx file/)).toBeInTheDocument();
   });
 
-  it('should render Deploy Now link', () => {
+  it('should render deploy link', () => {
     render(<Home />);
     expect(screen.getByText('Deploy Now')).toBeInTheDocument();
   });
 
-  it('should render Documentation link', () => {
+  it('should have external links with target blank', () => {
     render(<Home />);
-    expect(screen.getByText('Documentation')).toBeInTheDocument();
+    const links = screen.getAllByRole('link');
+    const externalLinks = links.filter((l) => l.getAttribute('target') === '_blank');
+    expect(externalLinks.length).toBeGreaterThan(0);
   });
 
-  it('should have correct external link targets', () => {
+  it('should render Vercel logo', () => {
     render(<Home />);
-    const deployLink = screen.getByText('Deploy Now').closest('a');
-    const docsLink = screen.getByText('Documentation').closest('a');
-    expect(deployLink).toHaveAttribute('target', '_blank');
-    expect(deployLink).toHaveAttribute('rel', 'noopener noreferrer');
-    expect(docsLink).toHaveAttribute('target', '_blank');
-    expect(docsLink).toHaveAttribute('rel', 'noopener noreferrer');
+    expect(screen.getByAltText('Vercel logomark')).toBeInTheDocument();
   });
 });

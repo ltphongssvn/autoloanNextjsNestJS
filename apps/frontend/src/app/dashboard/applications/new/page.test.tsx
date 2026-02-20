@@ -63,8 +63,7 @@ describe('NewApplicationPage', () => {
   });
 
   it('should disable button while submitting', async () => {
-    let resolve: () => void;
-    mockCreate.mockReturnValue(new Promise<void>((r) => { resolve = r; }));
+    mockCreate.mockReturnValue(new Promise(() => {}));
     render(<NewApplicationPage />);
     fillForm();
     fireEvent.click(screen.getByRole('button', { name: 'Submit Application' }));

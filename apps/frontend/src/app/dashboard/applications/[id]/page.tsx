@@ -43,6 +43,8 @@ export default function ApplicationDetailPage() {
   if (!application) return <div>Application not found</div>;
 
   const isStaff = user?.role === 'loan_officer' || user?.role === 'underwriter';
+  const loanAmount = application.loan_details?.amount as number | undefined;
+  const downPayment = application.loan_details?.down_payment as number | undefined;
 
   return (
     <main>
@@ -52,9 +54,9 @@ export default function ApplicationDetailPage() {
         <dt>Status</dt>
         <dd data-testid="status">{application.status}</dd>
         <dt>Loan Amount</dt>
-        <dd data-testid="loan-amount">${application.loan_amount?.toLocaleString() ?? 'N/A'}</dd>
+        <dd data-testid="loan-amount">${loanAmount?.toLocaleString() ?? 'N/A'}</dd>
         <dt>Down Payment</dt>
-        <dd data-testid="down-payment">${application.down_payment?.toLocaleString() ?? 'N/A'}</dd>
+        <dd data-testid="down-payment">${downPayment?.toLocaleString() ?? 'N/A'}</dd>
         <dt>Loan Term</dt>
         <dd data-testid="loan-term">{application.loan_term ?? 'N/A'} months</dd>
       </dl>
