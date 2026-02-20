@@ -67,7 +67,7 @@ export class AuthService {
         encryptedPassword: hashed,
         firstName: dto.first_name,
         lastName: dto.last_name,
-        phone: dto.phone || null,
+        phone: dto.phone || "",
       },
     });
 
