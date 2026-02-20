@@ -28,10 +28,10 @@ describe('LoginPage', () => {
 
   it('should render login form', () => {
     render(<LoginPage />);
-    expect(screen.getByRole('heading', { name: 'Sign In' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Log In' })).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument(); // pragma: allowlist secret
-    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Log In' })).toBeInTheDocument();
   });
 
   it('should call login on submit', async () => {
@@ -39,7 +39,7 @@ describe('LoginPage', () => {
     render(<LoginPage />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@test.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'testpass' } }); // pragma: allowlist secret
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log In' }));
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('test@test.com', 'testpass'); // pragma: allowlist secret
       expect(mockPush).toHaveBeenCalledWith('/dashboard');
@@ -51,7 +51,7 @@ describe('LoginPage', () => {
     render(<LoginPage />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong' } }); // pragma: allowlist secret
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log In' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Invalid credentials'));
   });
 
@@ -60,7 +60,7 @@ describe('LoginPage', () => {
     render(<LoginPage />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'x' } }); // pragma: allowlist secret
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Log In' }));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Login failed'));
   });
 
@@ -70,10 +70,10 @@ describe('LoginPage', () => {
     render(<LoginPage />);
     fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
     fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'x' } }); // pragma: allowlist secret
-    fireEvent.click(screen.getByRole('button', { name: 'Sign In' }));
-    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Signing in...'));
+    fireEvent.click(screen.getByRole('button', { name: 'Log In' }));
+    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Logging in...'));
     expect(screen.getByRole('button')).toBeDisabled();
     resolveLogin!();
-    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Sign In'));
+    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Log In'));
   });
 });
