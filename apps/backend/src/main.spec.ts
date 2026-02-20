@@ -13,19 +13,27 @@ jest.mock('@nestjs/core', () => ({
   ValidationPipe: jest.fn(),
 }));
 
-jest.mock('@nestjs/swagger', () => ({
-  DocumentBuilder: jest.fn().mockReturnValue({
-    setTitle: jest.fn().mockReturnThis(),
-    setDescription: jest.fn().mockReturnThis(),
-    setVersion: jest.fn().mockReturnThis(),
-    addBearerAuth: jest.fn().mockReturnThis(),
-    build: jest.fn().mockReturnValue({}),
-  }),
-  SwaggerModule: {
-    createDocument: jest.fn().mockReturnValue({}),
-    setup: jest.fn(),
-  },
-}));
+jest.mock('@nestjs/swagger', () => {
+  const passthrough = () => () => {};
+  return {
+    DocumentBuilder: jest.fn().mockReturnValue({
+      setTitle: jest.fn().mockReturnThis(),
+      setDescription: jest.fn().mockReturnThis(),
+      setVersion: jest.fn().mockReturnThis(),
+      addBearerAuth: jest.fn().mockReturnThis(),
+      build: jest.fn().mockReturnValue({}),
+    }),
+    SwaggerModule: {
+      createDocument: jest.fn().mockReturnValue({}),
+      setup: jest.fn(),
+    },
+    ApiTags: passthrough,
+    ApiOperation: passthrough,
+    ApiResponse: passthrough,
+    ApiBearerAuth: passthrough,
+    ApiConsumes: passthrough,
+  };
+});
 
 jest.mock('./http-exception.filter', () => ({
   GlobalExceptionFilter: jest.fn(),
