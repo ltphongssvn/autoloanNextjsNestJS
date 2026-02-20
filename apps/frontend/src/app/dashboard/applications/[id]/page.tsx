@@ -5,6 +5,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { api } from '../../../../services/api';
+import StatusHistoryList from '../../../../components/StatusHistory';
+import NotesList from '../../../../components/NotesList';
 import type { Application } from '@autoloan/shared-types';
 
 export default function ApplicationDetailPage() {
@@ -19,7 +21,7 @@ export default function ApplicationDetailPage() {
     async function fetchApplication() {
       try {
         const res = await api.applications.get(Number(id));
-        setApplication(res.data);
+        setApplication(res.data ?? res);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load application');
       } finally {
@@ -32,7 +34,7 @@ export default function ApplicationDetailPage() {
   const handleStatusUpdate = async (status: string) => {
     try {
       const res = await api.applications.updateStatus(Number(id), status);
-      setApplication(res.data);
+      setApplication(res.data ?? res);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update status');
     }
@@ -71,6 +73,8 @@ export default function ApplicationDetailPage() {
           <button onClick={() => handleStatusUpdate('rejected')}>Reject</button>
         </section>
       )}
+      <StatusHistoryList applicationId={Number(id)} />
+      <NotesList applicationId={Number(id)} />
     </main>
   );
 }

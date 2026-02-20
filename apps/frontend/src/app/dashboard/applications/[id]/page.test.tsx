@@ -11,11 +11,17 @@ vi.mock('next/navigation', () => ({
 
 const mockGet = vi.fn();
 const mockUpdateStatus = vi.fn();
+const mockHistory = vi.fn();
 vi.mock('../../../../services/api', () => ({
   api: {
     applications: {
       get: (...args: unknown[]) => mockGet(...args),
       updateStatus: (...args: unknown[]) => mockUpdateStatus(...args),
+      history: (...args: unknown[]) => mockHistory(...args),
+    },
+    notes: {
+      list: vi.fn().mockResolvedValue({ data: [] }),
+      create: vi.fn(),
     },
   },
 }));
@@ -38,6 +44,7 @@ describe('ApplicationDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseAuth.mockReturnValue({ user: { id: 1, role: 'customer' } });
+    mockHistory.mockResolvedValue({ data: [] });
   });
 
   it('should show loading state', () => {
@@ -53,6 +60,12 @@ describe('ApplicationDetailPage', () => {
     expect(screen.getByTestId('status')).toHaveTextContent('submitted');
     expect(screen.getByTestId('loan-amount')).toHaveTextContent('$25,000');
     expect(screen.getByTestId('loan-term')).toHaveTextContent('60 months');
+  });
+
+  it('should render with res fallback (no data wrapper)', async () => {
+    mockGet.mockResolvedValue(baseApp);
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Application AL-000001')).toBeInTheDocument());
   });
 
   it('should show error on fetch failure', async () => {
@@ -155,5 +168,17 @@ describe('ApplicationDetailPage', () => {
     await waitFor(() => expect(screen.getByTestId('loan-amount')).toHaveTextContent('N/A'));
     expect(screen.getByTestId('down-payment')).toHaveTextContent('N/A');
     expect(screen.getByTestId('loan-term')).toHaveTextContent('N/A');
+  });
+
+  it('should render StatusHistory section', async () => {
+    mockGet.mockResolvedValue({ data: baseApp });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('No status changes yet.')).toBeInTheDocument());
+  });
+
+  it('should render Notes section', async () => {
+    mockGet.mockResolvedValue({ data: baseApp });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('No notes yet.')).toBeInTheDocument());
   });
 });
