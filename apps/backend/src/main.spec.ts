@@ -3,6 +3,7 @@ const mockApp = {
   setGlobalPrefix: jest.fn(),
   enableCors: jest.fn(),
   useGlobalFilters: jest.fn(),
+  useGlobalPipes: jest.fn(),
   listen: jest.fn().mockResolvedValue(undefined),
 };
 
@@ -41,6 +42,7 @@ describe('Bootstrap', () => {
     expect(mockApp.setGlobalPrefix).toHaveBeenCalledWith('api/v1');
     expect(mockApp.enableCors).toHaveBeenCalled();
     expect(mockApp.useGlobalFilters).toHaveBeenCalled();
+    expect(mockApp.useGlobalPipes).toHaveBeenCalled();
     expect(mockApp.listen).toHaveBeenCalledWith(3001);
     expect(SwaggerModule.createDocument).toHaveBeenCalled();
     expect(SwaggerModule.setup).toHaveBeenCalledWith('api/docs', mockApp, expect.any(Object));
