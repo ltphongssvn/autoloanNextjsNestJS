@@ -31,6 +31,9 @@
     "npm": ">=10.0.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.58.2"
+    "@nestjs-modules/mailer": "^2.0.2",
+    "@playwright/test": "^1.58.2",
+    "@types/nodemailer": "^7.0.11",
+    "nodemailer": "^8.0.1"
   }
 }
