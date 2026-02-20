@@ -11,7 +11,6 @@ export class ApplicationsService {
   async create(userId: number, dto: CreateApplicationDto) {
     const count = await this.prisma.application.count({ where: { userId } });
     const appNumber = `AL-${String(count + 1).padStart(6, '0')}`;
-
     return this.prisma.application.create({
       data: {
         userId,
@@ -40,29 +39,30 @@ export class ApplicationsService {
   async findOne(id: number, userId?: number, role?: string) {
     const application = await this.prisma.application.findUnique({
       where: { id },
-      include: { user: true, documents: true, addresses: true },
+      include: {
+        user: true,
+        documents: true,
+        addresses: true,
+        vehicles: true,
+        financialInfos: true,
+        statusHistories: { orderBy: { createdAt: 'desc' }, include: { user: true } },
+      },
     });
-
     if (!application) {
       throw new NotFoundException(`Application #${id} not found`);
     }
-
     if (role === 'customer' && application.userId !== userId) {
       throw new ForbiddenException('Access denied');
     }
-
     return application;
   }
 
   async updateStatus(id: number, status: ApplicationStatus, userId: number) {
     const application = await this.prisma.application.findUnique({ where: { id } });
-
     if (!application) {
       throw new NotFoundException(`Application #${id} not found`);
     }
-
     const fromStatus = application.status;
-
     const updated = await this.prisma.application.update({
       where: { id },
       data: {
@@ -70,7 +70,6 @@ export class ApplicationsService {
         decidedAt: ['approved', 'rejected'].includes(status) ? new Date() : undefined,
       },
     });
-
     await this.prisma.statusHistory.create({
       data: {
         applicationId: id,
@@ -79,7 +78,6 @@ export class ApplicationsService {
         toStatus: status,
       },
     });
-
     return updated;
   }
 }
