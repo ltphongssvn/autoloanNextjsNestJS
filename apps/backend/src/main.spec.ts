@@ -5,10 +5,12 @@ const mockApp = {
   useGlobalFilters: jest.fn(),
   useGlobalPipes: jest.fn(),
   listen: jest.fn().mockResolvedValue(undefined),
+  close: jest.fn().mockResolvedValue(undefined),
 };
 
 jest.mock('@nestjs/core', () => ({
   NestFactory: { create: jest.fn().mockResolvedValue(mockApp) },
+  ValidationPipe: jest.fn(),
 }));
 
 jest.mock('@nestjs/swagger', () => ({
@@ -35,6 +37,11 @@ import { bootstrap } from './main';
 
 describe('Bootstrap', () => {
   beforeEach(() => jest.clearAllMocks());
+
+  afterAll(async () => {
+    await mockApp.close();
+    jest.restoreAllMocks();
+  });
 
   it('should create app and configure with Swagger', async () => {
     await bootstrap();
