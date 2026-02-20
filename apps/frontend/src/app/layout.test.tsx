@@ -11,6 +11,10 @@ vi.mock('../context/AuthContext', () => ({
   AuthProvider: ({ children }: { children: React.ReactNode }) => children,
 }));
 
+vi.mock('../components/Navigation', () => ({
+  default: () => <nav data-testid="mock-nav" />,
+}));
+
 describe('RootLayout', () => {
   it('should be a function component', () => {
     expect(typeof RootLayout).toBe('function');
@@ -23,19 +27,21 @@ describe('RootLayout', () => {
     expect(result.props.lang).toBe('en');
   });
 
-  it('should render children inside body via AuthProvider', () => {
-    const child = <div data-testid="child">Test Child</div>;
-    const result = RootLayout({ children: child }) as React.ReactElement;
-    const body = result.props.children;
-    expect(body.type).toBe('body');
-    const authProvider = body.props.children;
-    expect(authProvider.props.children).toBe(child);
-  });
-
-  it('should include font variables on body', () => {
+  it('should render body with font variables', () => {
     const result = RootLayout({ children: <div /> }) as React.ReactElement;
     const body = result.props.children;
+    expect(body.type).toBe('body');
     expect(body.props.className).toContain('--font-geist-sans');
     expect(body.props.className).toContain('--font-geist-mono');
+  });
+
+  it('should wrap children with AuthProvider and Navigation', () => {
+    const child = <div data-testid="child">Test</div>;
+    const result = RootLayout({ children: child }) as React.ReactElement;
+    const body = result.props.children;
+    const authChildren = body.props.children;
+    const childrenArray = Array.isArray(authChildren.props.children) ? authChildren.props.children : [authChildren.props.children];
+    expect(childrenArray).toHaveLength(2);
+    expect(childrenArray[1]).toBe(child);
   });
 });
