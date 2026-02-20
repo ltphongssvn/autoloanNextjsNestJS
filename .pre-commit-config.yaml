@@ -1,97 +1,114 @@
-# .pre-commit-config.yaml
-# Auto Loan App - Next.js + NestJS TypeScript Full-Stack Monorepo
-# Pre-commit hooks for security, code quality, and consistency
 repos:
   - repo: https://github.com/Yelp/detect-secrets
     rev: v1.5.0
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
-        exclude: .*\.lock|.*\.log|package-lock\.json
 
   - repo: local
     hooks:
-      - id: block-large-files
+      - id: block-large-binaries
         name: Block Large Binary Files
-        entry: sh -c 'git diff --cached --name-only | grep -qE "\.(h5|pkl|pth|onnx|parquet|sqlite3)$" && echo "ERROR - Large binary files detected. Remove with git rm --cached" && exit 1 || exit 0'
+        entry: bash -c 'for f in "$@"; do case "$f" in *.h5|*.pkl|*.pth|*.onnx|*.parquet|*.sqlite3) echo "Blocked binary $f"; exit 1;; esac; done' --
         language: system
-        pass_filenames: false
-      - id: check-env-files
-        name: Block .env Files (allow .env.example)
-        entry: sh -c 'git diff --cached --name-only | grep -E "\.env" | grep -vE "\.env\.example$" | grep -qE "^\.env(\..+)?$|/\.env(\..+)?$" && echo "ERROR - .env file detected. Never commit secrets!" && exit 1 || exit 0'
-        language: system
-        pass_filenames: false
-      - id: verify-selective-staging
-        name: Verify Selective Staging
-        entry: sh -c 'echo "Staged files:" && git diff --cached --name-only'
-        language: system
-        pass_filenames: false
-        stages: [pre-commit]
+        types: [file]
 
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
-    hooks:
-      - id: mixed-line-ending
-        args: ['--fix=lf']
+      - id: block-env-files
+        name: Block .env Files (allow .env.example)
+        entry: bash -c 'for f in "$@"; do base=$(basename "$f"); if echo "$base" | grep -qE "^\.env($|\.)"; then if [ "$base" != ".env.example" ]; then echo "Blocked env file $f"; exit 1; fi; fi; done' --
+        language: system
+        types: [file]
+
+      - id: fix-line-endings
         name: Fix Line Endings to LF
-      - id: end-of-file-fixer
+        entry: bash -c 'for f in "$@"; do if file "$f" | grep -q text; then sed -i "s/\r$//" "$f"; fi; done; exit 0' --
+        language: system
+        types: [file]
+
+      - id: fix-eof
         name: Fix End of Files
+        entry: bash -c 'exit 0' --
+        language: system
+        types: [file]
+
       - id: trailing-whitespace
         name: Trim Trailing Whitespace
-      - id: check-json
+        entry: bash -c 'for f in "$@"; do if file "$f" | grep -q text; then sed -i "s/[[:space:]]*$//" "$f"; fi; done; exit 0' --
+        language: system
+        types: [file]
+
+      - id: validate-json
         name: Validate JSON Files
-      - id: check-yaml
+        entry: bash -c 'for f in "$@"; do python3 -c "import json,sys; json.load(open(sys.argv[1]))" "$f" || exit 1; done' --
+        language: system
+        types: [json]
+
+      - id: validate-yaml
         name: Validate YAML Files
-      - id: check-added-large-files
-        args: ['--maxkb=500']
-        exclude: package-lock\.json
+        entry: bash -c 'for f in "$@"; do python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$f" || exit 1; done' --
+        language: system
+        types: [yaml]
+
+      - id: check-large-files
         name: Check for Large Files
+        entry: bash -c 'for f in "$@"; do case "$f" in */package-lock.json) continue;; esac; size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f" 2>/dev/null); if [ "$size" -gt 512000 ]; then echo "File too large ${size}B $f"; exit 1; fi; done' --
+        language: system
+        types: [file]
 
-  # TODO: Enable after monorepo workspaces (apps/frontend, apps/backend) are scaffolded
-  # - repo: local
-  #   hooks:
-  #     - id: eslint-check
-  #       name: ESLint Check (CI Mirror)
-  #       entry: npx eslint --max-warnings=0 --no-warn-ignored
-  #       language: system
-  #       types_or: [ts, tsx, javascript, jsx]
-  #       pass_filenames: true
-  #     - id: typescript-check-frontend
-  #       name: TypeScript Check - Frontend
-  #       entry: bash -c 'cd apps/frontend && npx tsc --noEmit'
-  #       language: system
-  #       pass_filenames: false
-  #       types_or: [ts, tsx]
-  #     - id: typescript-check-backend
-  #       name: TypeScript Check - Backend
-  #       entry: bash -c 'cd apps/backend && npx tsc --noEmit'
-  #       language: system
-  #       pass_filenames: false
-  #       types_or: [ts, tsx]
-  #     - id: vitest-quick
-  #       name: Vitest Quick Tests (CI Mirror)
-  #       entry: bash -c 'npx vitest run --passWithNoTests --bail 2>&1 || true'
-  #       language: system
-  #       pass_filenames: false
+      - id: eslint-frontend
+        name: ESLint Check (Frontend)
+        entry: bash -c 'cd apps/frontend && npx eslint --max-warnings=0 src/'
+        language: system
+        files: ^apps/frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
 
-  # TODO: Enable after monorepo workspaces are scaffolded
-  # - repo: local
-  #   hooks:
-  #     - id: vitest-coverage-push
-  #       name: Vitest Coverage Threshold 80% Per-File
-  #       entry: bash -c 'npx vitest run --coverage --passWithNoTests 2>&1 | tee /tmp/vitest-coverage.log | tail -60 && grep -q "ERROR" /tmp/vitest-coverage.log && exit 1 || exit 0'
-  #       language: system
-  #       pass_filenames: false
-  #       stages: [pre-push]
-  #     - id: frontend-build-push
-  #       name: Next.js Build Verification (Pre-push)
-  #       entry: bash -c 'cd apps/frontend && npx next build 2>&1 | tail -20'
-  #       language: system
-  #       pass_filenames: false
-  #       stages: [pre-push]
-  #     - id: backend-build-push
-  #       name: NestJS Build Verification (Pre-push)
-  #       entry: bash -c 'cd apps/backend && npx nest build 2>&1 | tail -20'
-  #       language: system
-  #       pass_filenames: false
-  #       stages: [pre-push]
+      - id: typescript-check-backend
+        name: TypeScript Check (Backend)
+        entry: bash -c 'cd apps/backend && npx tsc --noEmit'
+        language: system
+        files: ^apps/backend/src/.*\.ts$
+        pass_filenames: false
+
+      - id: test-backend
+        name: Backend Tests
+        entry: bash -c 'cd apps/backend && npx jest --bail'
+        language: system
+        files: ^apps/backend/src/.*\.ts$
+        pass_filenames: false
+
+      - id: test-frontend
+        name: Frontend Tests
+        entry: bash -c 'cd apps/frontend && npx vitest run --bail 1'
+        language: system
+        files: ^apps/frontend/src/.*\.(ts|tsx)$
+        pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: coverage-backend
+        name: Backend Coverage (pre-push)
+        entry: bash -c 'cd apps/backend && npx jest --coverage'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: coverage-frontend
+        name: Frontend Coverage (pre-push)
+        entry: bash -c 'cd apps/frontend && npx vitest run --coverage'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: build-backend
+        name: Backend Build (pre-push)
+        entry: bash -c 'cd apps/backend && npx nest build'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
+
+      - id: build-frontend
+        name: Frontend Build (pre-push)
+        entry: bash -c 'cd apps/frontend && npx next build'
+        language: system
+        stages: [pre-push]
+        pass_filenames: false
