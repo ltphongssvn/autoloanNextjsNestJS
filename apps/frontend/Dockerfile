@@ -22,4 +22,4 @@ COPY --from=builder /app/apps/frontend/public ./apps/frontend/public
 COPY --from=builder /app/apps/frontend/package.json ./apps/frontend/
 COPY --from=builder /app/packages/shared-types ./packages/shared-types
 EXPOSE 3000
-CMD ["node_modules/.bin/next", "start", "-p", "3000", "--dir", "apps/frontend"]
+CMD ["sh", "-c", "cd apps/frontend && ../../node_modules/.bin/next start -p 3000"]
