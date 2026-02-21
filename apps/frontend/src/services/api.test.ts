@@ -80,6 +80,22 @@ describe('api', () => {
     it('create', async () => { await api.notes.create(1, { note: 'hi' }); expect(mockFetch).toHaveBeenCalled(); });
   });
 
+  describe('mfa', () => {
+    it('status', async () => { await api.mfa.status(); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/mfa/status'), expect.anything()); });
+    it('setup', async () => { await api.mfa.setup(); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/mfa/setup'), expect.objectContaining({ method: 'POST' })); });
+    it('enable', async () => { await api.mfa.enable('123456'); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/mfa/enable'), expect.objectContaining({ method: 'POST' })); });
+    it('disable', async () => { await api.mfa.disable('123456'); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/mfa/disable'), expect.objectContaining({ method: 'POST' })); });
+    it('verify', async () => { await api.mfa.verify('123456'); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/mfa/verify'), expect.objectContaining({ method: 'POST' })); });
+  });
+
+  describe('apiKeys', () => {
+    it('list', async () => { await api.apiKeys.list(); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/api-keys'), expect.anything()); });
+    it('create', async () => { await api.apiKeys.create('my key'); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/api-keys'), expect.objectContaining({ method: 'POST' })); });
+    it('create with expiresAt', async () => { await api.apiKeys.create('my key', '2030-01-01'); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/api-keys'), expect.objectContaining({ method: 'POST' })); });
+    it('revoke', async () => { await api.apiKeys.revoke(1); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/api-keys/1/revoke'), expect.objectContaining({ method: 'PATCH' })); });
+    it('remove', async () => { await api.apiKeys.remove(1); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/api-keys/1'), expect.objectContaining({ method: 'DELETE' })); });
+  });
+
   describe('users', () => {
     it('me', async () => { await api.users.me(); expect(mockFetch).toHaveBeenCalled(); });
     it('updateProfile', async () => { await api.users.updateProfile({ first_name: 'A' }); expect(mockFetch).toHaveBeenCalled(); });
