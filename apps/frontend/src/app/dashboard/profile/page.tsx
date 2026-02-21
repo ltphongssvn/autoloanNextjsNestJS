@@ -1,9 +1,9 @@
 // apps/frontend/src/app/dashboard/profile/page.tsx
 'use client';
 import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useAuth } from '../../../context/AuthContext';
 import { api } from '../../../services/api';
-
 export default function ProfilePage() {
   const { user } = useAuth();
   const [formData, setFormData] = useState({
@@ -14,11 +14,9 @@ export default function ProfilePage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError('');
@@ -33,7 +31,6 @@ export default function ProfilePage() {
       setIsSubmitting(false);
     }
   };
-
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-2xl font-bold mb-6">My Profile</h1>
@@ -51,7 +48,7 @@ export default function ProfilePage() {
       </div>
       {message && <div role="status" className="mb-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm">{message}</div>}
       {error && <div role="alert" className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
-      <div className="bg-white rounded-xl border p-6">
+      <div className="bg-white rounded-xl border p-6 mb-6">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -69,6 +66,19 @@ export default function ProfilePage() {
           </div>
           <button type="submit" disabled={isSubmitting} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition">{isSubmitting ? 'Saving...' : 'Save Changes'}</button>
         </form>
+      </div>
+      <div className="bg-white rounded-xl border p-6">
+        <h2 className="text-lg font-semibold mb-3">Security Settings</h2>
+        <div className="space-y-3">
+          <Link href="/dashboard/profile/mfa" className="block p-3 border rounded-lg hover:bg-gray-50 transition">
+            <span className="font-medium">Two-Factor Authentication</span>
+            <p className="text-sm text-gray-500">Add an extra layer of security to your account</p>
+          </Link>
+          <Link href="/dashboard/profile/api-keys" className="block p-3 border rounded-lg hover:bg-gray-50 transition">
+            <span className="font-medium">API Keys</span>
+            <p className="text-sm text-gray-500">Manage API keys for programmatic access</p>
+          </Link>
+        </div>
       </div>
     </main>
   );
