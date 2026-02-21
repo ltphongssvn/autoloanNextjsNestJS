@@ -37,4 +37,27 @@ export class AuthController {
   logout(@Req() req: AuthenticatedRequest) {
     return this.authService.logout(req.user.jti);
   }
+
+  @Post('refresh')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Refresh JWT token' })
+  @ApiResponse({ status: 200, description: 'New JWT token returned' })
+  refresh(@Req() req: AuthenticatedRequest) {
+    return this.authService.refresh(req.user.sub, req.user.jti);
+  }
+
+  @Post('password/reset-request')
+  @ApiOperation({ summary: 'Request password reset email' })
+  @ApiResponse({ status: 200, description: 'Reset email sent if account exists' })
+  requestPasswordReset(@Body() body: { email: string }) {
+    return this.authService.requestPasswordReset(body.email);
+  }
+
+  @Post('password/reset')
+  @ApiOperation({ summary: 'Reset password with token' })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  resetPassword(@Body() body: { token: string; password: string }) {
+    return this.authService.resetPassword(body.token, body.password);
+  }
 }
