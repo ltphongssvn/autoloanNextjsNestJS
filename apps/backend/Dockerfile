@@ -19,4 +19,4 @@ COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
 COPY --from=builder /app/apps/backend/package.json ./apps/backend/
 COPY --from=builder /app/packages/shared-types ./packages/shared-types
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma && node apps/backend/dist/main"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema=apps/backend/prisma/schema.prisma && node apps/backend/dist/main"]
