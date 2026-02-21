@@ -1,15 +1,17 @@
 // apps/backend/src/applications/applications.controller.ts
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { ApplicationStatus } from '@prisma/client';
 import { StatusHistoryService } from './status-history.service';
 import { ApplicationWorkflowService } from './application-workflow.service';
+import { AgreementPdfService } from './agreement-pdf.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { JwtPayload } from '../auth/jwt.strategy';
 import { CreateApplicationDto } from './create-application.dto';
+import { Response } from 'express';
 
 interface AuthenticatedRequest {
   user: JwtPayload;
@@ -24,6 +26,7 @@ export class ApplicationsController {
     private readonly applicationsService: ApplicationsService,
     private readonly statusHistoryService: StatusHistoryService,
     private readonly workflowService: ApplicationWorkflowService,
+    private readonly agreementPdfService: AgreementPdfService,
   ) {}
 
   @Post()
@@ -84,6 +87,19 @@ export class ApplicationsController {
     @Body() body: { signature_data: string },
   ) {
     return this.workflowService.sign(id, req.user.sub, body.signature_data);
+  }
+
+  @Get(':id/agreement_pdf')
+  @ApiOperation({ summary: 'Download loan agreement PDF' })
+  @ApiResponse({ status: 200, description: 'PDF file' })
+  async agreementPdf(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.agreementPdfService.generate(id, req.user.sub);
+    res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${filename}"` });
+    res.send(buffer);
   }
 
   @Get(':id/history')
