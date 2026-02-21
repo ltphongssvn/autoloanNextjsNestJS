@@ -1,7 +1,8 @@
 // apps/backend/src/auth/auth.controller.ts
-import { Controller, Post, Delete, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { JwtPayload } from './jwt.strategy';
 
@@ -12,7 +13,19 @@ interface AuthenticatedRequest {
 @ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly usersService: UsersService,
+  ) {}
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get current user profile' })
+  @ApiResponse({ status: 200, description: 'User profile returned' })
+  getMe(@Req() req: AuthenticatedRequest) {
+    return this.usersService.findById(req.user.sub);
+  }
 
   @Post('login')
   @ApiOperation({ summary: 'Login with email and password' })

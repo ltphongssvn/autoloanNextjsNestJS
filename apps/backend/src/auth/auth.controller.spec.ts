@@ -1,10 +1,12 @@
 // apps/backend/src/auth/auth.controller.spec.ts
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { UsersService } from '../users/users.service';
 import { JwtPayload } from './jwt.strategy';
 
 describe('AuthController', () => {
   let controller: AuthController;
+
   const mockService = {
     login: jest.fn(),
     signup: jest.fn(),
@@ -13,13 +15,31 @@ describe('AuthController', () => {
     requestPasswordReset: jest.fn(), // pragma: allowlist secret
     resetPassword: jest.fn(), // pragma: allowlist secret
   };
+
+  const mockUsersService = {
+    findById: jest.fn(),
+  };
+
   const authReq = () => ({
     user: { sub: 1, email: 'test@test.com', role: 'customer', jti: 'test-jti' } as JwtPayload,
   });
 
   beforeEach(() => {
-    controller = new AuthController(mockService as unknown as AuthService);
+    controller = new AuthController(
+      mockService as unknown as AuthService,
+      mockUsersService as unknown as UsersService,
+    );
     jest.clearAllMocks();
+  });
+
+  describe('getMe', () => {
+    it('should return current user profile', async () => {
+      const user = { id: 1, email: 'test@test.com', role: 'customer', first_name: 'Test', last_name: 'User' };
+      mockUsersService.findById.mockResolvedValue(user);
+      const result = await controller.getMe(authReq());
+      expect(mockUsersService.findById).toHaveBeenCalledWith(1);
+      expect(result).toEqual(user);
+    });
   });
 
   describe('login', () => {

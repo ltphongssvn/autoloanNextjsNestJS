@@ -12,6 +12,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { PrismaService } from '../prisma.service';
+import { UsersModule } from '../users/users.module';
 
 export const getJwtSecret = () => process.env.JWT_SECRET || 'default-secret-change-me';
 export const getJwtExpiration = () => Number(process.env.JWT_EXPIRATION) || 3600;
@@ -23,6 +24,7 @@ export const getJwtExpiration = () => Number(process.env.JWT_EXPIRATION) || 3600
       secret: getJwtSecret(),
       signOptions: { expiresIn: getJwtExpiration() },
     }),
+    UsersModule,
   ],
   controllers: [AuthController, MfaController, ApiKeysController],
   providers: [AuthService, MfaService, ApiKeysService, JwtStrategy, JwtAuthGuard, RolesGuard, PrismaService],
