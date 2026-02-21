@@ -13,12 +13,15 @@ import { JwtAuthGuard } from './jwt-auth.guard';
 import { RolesGuard } from './roles.guard';
 import { PrismaService } from '../prisma.service';
 
+export const getJwtSecret = () => process.env.JWT_SECRET || 'default-secret-change-me';
+export const getJwtExpiration = () => Number(process.env.JWT_EXPIRATION) || 3600;
+
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.register({
-      secret: process.env.JWT_SECRET || 'default-secret-change-me',
-      signOptions: { expiresIn: Number(process.env.JWT_EXPIRATION) || 3600 },
+      secret: getJwtSecret(),
+      signOptions: { expiresIn: getJwtExpiration() },
     }),
   ],
   controllers: [AuthController, MfaController, ApiKeysController],
