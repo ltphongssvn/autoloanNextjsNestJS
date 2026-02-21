@@ -2,6 +2,7 @@
 import { Module } from '@nestjs/common';
 import { ApplicationsController } from './applications.controller';
 import { LoanOfficerController } from './loan-officer.controller';
+import { UnderwriterController } from './underwriter.controller';
 import { ApplicationsService } from './applications.service';
 import { StatusHistoryService } from './status-history.service';
 import { ApplicationWorkflowService } from './application-workflow.service';
@@ -10,7 +11,7 @@ import { NotificationsModule } from '../notifications';
 
 @Module({
   imports: [NotificationsModule],
-  controllers: [ApplicationsController, LoanOfficerController],
+  controllers: [ApplicationsController, LoanOfficerController, UnderwriterController],
   providers: [ApplicationsService, StatusHistoryService, ApplicationWorkflowService, PrismaService],
   exports: [ApplicationsService, StatusHistoryService, ApplicationWorkflowService],
 })

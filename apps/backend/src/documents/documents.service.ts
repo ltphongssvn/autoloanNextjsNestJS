@@ -1,26 +1,21 @@
 // apps/backend/src/documents/documents.service.ts
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { DocumentType, DocumentStatus } from '@prisma/client';
 
 @Injectable()
 export class DocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async upload(applicationId: number, _userId: number, file: Express.Multer.File, docType: string) {
-    if (!file) throw new BadRequestException('No file provided');
-    const application = await this.prisma.application.findUnique({ where: { id: applicationId } });
-    if (!application) throw new NotFoundException(`Application #${applicationId} not found`);
-
+  async upload(applicationId: number, userId: number, file: Express.Multer.File, docType: string) {
     return this.prisma.document.create({
       data: {
         applicationId,
-        docType: docType as DocumentType,
+        docType: docType as any,
         fileName: file.originalname,
-        fileUrl: `/uploads/${file.filename ?? file.originalname}`,
         fileSize: file.size,
         contentType: file.mimetype,
-        status: 'pending' as DocumentStatus,
+        fileUrl: `/uploads/${file.filename || file.originalname}`,
+        status: 'uploaded',
         uploadedAt: new Date(),
       },
     });
@@ -33,17 +28,41 @@ export class DocumentsService {
     });
   }
 
-  async updateStatus(id: number, status: string, userId: number, rejectionNote?: string) {
+  async findOne(id: number) {
     const doc = await this.prisma.document.findUnique({ where: { id } });
-    if (!doc) throw new NotFoundException(`Document #${id} not found`);
+    if (!doc) {
+      throw new NotFoundException(`Document #${id} not found`);
+    }
+    return doc;
+  }
 
+  async remove(id: number, userId: number) {
+    const doc = await this.prisma.document.findUnique({
+      where: { id },
+      include: { application: true },
+    });
+    if (!doc) {
+      throw new NotFoundException(`Document #${id} not found`);
+    }
+    if (doc.application.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+    await this.prisma.document.delete({ where: { id } });
+    return { message: 'Document deleted' };
+  }
+
+  async updateStatus(id: number, status: string, verifiedById: number, rejectionNote?: string) {
+    const doc = await this.prisma.document.findUnique({ where: { id } });
+    if (!doc) {
+      throw new NotFoundException(`Document #${id} not found`);
+    }
     return this.prisma.document.update({
       where: { id },
       data: {
-        status: status as DocumentStatus,
-        rejectionNote: rejectionNote ?? null,
+        status: status as any,
+        verifiedById,
         verifiedAt: status === 'verified' ? new Date() : undefined,
-        verifiedById: status === 'verified' ? userId : undefined,
+        rejectionNote: rejectionNote ?? doc.rejectionNote,
       },
     });
   }
