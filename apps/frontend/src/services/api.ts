@@ -21,6 +21,18 @@ async function request(path: string, options: RequestInit = {}) {
   return res.json();
 }
 
+async function downloadFile(path: string): Promise<Blob> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${BASE_URL}${path}`, { headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.message || `Download failed: ${res.status}`);
+  }
+  return res.blob();
+}
+
 export const api = {
   auth: {
     login: (data: Record<string, string>) => request('/auth/login', { method: 'POST', body: JSON.stringify(data) }),
@@ -39,6 +51,7 @@ export const api = {
     sign: (id: number, signatureData: string) => request(`/applications/${id}/sign`, { method: 'POST', body: JSON.stringify({ signature_data: signatureData }) }),
     updateStatus: (id: number, status: string) => request(`/applications/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) }),
     history: (id: number) => request(`/applications/${id}/history`),
+    agreementPdf: (id: number) => downloadFile(`/applications/${id}/agreement_pdf`),
   },
   loanOfficer: {
     list: () => request('/loan-officer/applications'),

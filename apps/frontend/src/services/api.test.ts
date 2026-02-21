@@ -44,6 +44,29 @@ describe('api', () => {
     it('sign', async () => { await api.applications.sign(1, 'sig'); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/sign'), expect.objectContaining({ method: 'POST' })); });
     it('updateStatus', async () => { await api.applications.updateStatus(1, 'approved'); expect(mockFetch).toHaveBeenCalled(); });
     it('history', async () => { await api.applications.history(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('agreementPdf', async () => {
+      const blob = new Blob(['pdf-data']);
+      mockFetch.mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+      const result = await api.applications.agreementPdf(1);
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/agreement_pdf'), expect.anything());
+      expect(result).toEqual(blob);
+    });
+    it('agreementPdf throws on error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 422, json: () => Promise.resolve({ message: 'Not approved' }) });
+      await expect(api.applications.agreementPdf(1)).rejects.toThrow('Not approved');
+    });
+    it('agreementPdf handles non-json error', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500, json: () => Promise.reject('no json') });
+      await expect(api.applications.agreementPdf(1)).rejects.toThrow('Download failed: 500');
+    });
+    it('agreementPdf sends auth header', async () => {
+      localStorage.setItem('token', 'my-token');
+      const blob = new Blob(['data']);
+      mockFetch.mockResolvedValue({ ok: true, blob: () => Promise.resolve(blob) });
+      await api.applications.agreementPdf(1);
+      const call = mockFetch.mock.calls[0];
+      expect(call[1].headers['Authorization']).toBe('Bearer my-token');
+    });
   });
 
   describe('loanOfficer', () => {
