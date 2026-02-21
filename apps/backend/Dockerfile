@@ -1,4 +1,5 @@
 FROM node:20-alpine AS builder
+RUN npm install -g npm@11.10.1
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/backend/package.json apps/backend/
@@ -10,6 +11,7 @@ RUN npx prisma generate --schema=apps/backend/prisma/schema.prisma
 RUN npm run build -w apps/backend
 
 FROM node:20-alpine
+RUN npm install -g npm@11.10.1
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
