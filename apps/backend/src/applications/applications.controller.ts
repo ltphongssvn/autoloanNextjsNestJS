@@ -1,9 +1,10 @@
 // apps/backend/src/applications/applications.controller.ts
-import { Controller, Get, Post, Patch, Param, Body, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ApplicationsService } from './applications.service';
 import { ApplicationStatus } from '@prisma/client';
 import { StatusHistoryService } from './status-history.service';
+import { ApplicationWorkflowService } from './application-workflow.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
@@ -22,6 +23,7 @@ export class ApplicationsController {
   constructor(
     private readonly applicationsService: ApplicationsService,
     private readonly statusHistoryService: StatusHistoryService,
+    private readonly workflowService: ApplicationWorkflowService,
   ) {}
 
   @Post()
@@ -46,6 +48,42 @@ export class ApplicationsController {
   @ApiResponse({ status: 404, description: 'Application not found' })
   findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
     return this.applicationsService.findOne(id, req.user.sub, req.user.role);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update application (draft only)' })
+  @ApiResponse({ status: 200, description: 'Application updated' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: CreateApplicationDto,
+  ) {
+    return this.applicationsService.update(id, req.user.sub, dto);
+  }
+
+  @Delete(':id')
+  @ApiOperation({ summary: 'Delete application (draft only)' })
+  @ApiResponse({ status: 200, description: 'Application deleted' })
+  remove(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    return this.applicationsService.remove(id, req.user.sub);
+  }
+
+  @Post(':id/submit')
+  @ApiOperation({ summary: 'Submit a draft application' })
+  @ApiResponse({ status: 200, description: 'Application submitted' })
+  submit(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    return this.workflowService.submit(id, req.user.sub);
+  }
+
+  @Post(':id/sign')
+  @ApiOperation({ summary: 'Sign an approved application' })
+  @ApiResponse({ status: 200, description: 'Agreement signed' })
+  sign(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { signature_data: string },
+  ) {
+    return this.workflowService.sign(id, req.user.sub, body.signature_data);
   }
 
   @Get(':id/history')

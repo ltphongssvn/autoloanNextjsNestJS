@@ -2,10 +2,8 @@
 'use client';
 import Link from 'next/link';
 import { useAuth } from '../context/AuthContext';
-
 export default function Navigation() {
   const { user, logout } = useAuth();
-
   if (!user) {
     return (
       <nav className="bg-white border-b px-4 py-3 flex items-center justify-between max-w-6xl mx-auto">
@@ -17,12 +15,14 @@ export default function Navigation() {
       </nav>
     );
   }
-
+  const dashboardLink = user.role === 'loan_officer' ? '/dashboard/loan-officer'
+    : user.role === 'underwriter' ? '/dashboard/underwriter'
+    : '/dashboard';
   return (
     <nav className="bg-white border-b px-4 py-3 flex items-center justify-between max-w-6xl mx-auto">
-      <Link href="/dashboard" className="text-xl font-bold text-blue-600">AutoLoan</Link>
+      <Link href={dashboardLink} className="text-xl font-bold text-blue-600">AutoLoan</Link>
       <div className="flex gap-4 items-center">
-        <Link href="/dashboard" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition">Dashboard</Link>
+        <Link href={dashboardLink} className="text-sm font-medium text-gray-700 hover:text-blue-600 transition">Dashboard</Link>
         {user.role === 'customer' && <Link href="/dashboard/applications/new" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition">New Application</Link>}
         <Link href="/dashboard/profile" className="text-sm font-medium text-gray-700 hover:text-blue-600 transition">Profile</Link>
         <span data-testid="nav-user" className="text-sm text-gray-500">{user.full_name}</span>

@@ -1,5 +1,5 @@
 // apps/backend/src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -25,33 +25,34 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
+  private formatUser(user: any) {
+    return {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      first_name: user.firstName,
+      last_name: user.lastName,
+      full_name: `${user.firstName} ${user.lastName}`,
+      phone: user.phone,
+      created_at: user.createdAt.toISOString(),
+    };
+  }
+
+  private generateToken(user: any) {
+    const jti = uuidv4();
+    return this.jwtService.sign({ sub: user.id, email: user.email, role: user.role, jti });
+  }
+
   async login(dto: LoginDto) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
     const valid = await bcrypt.compare(dto.password, user.encryptedPassword);
     if (!valid) {
       throw new UnauthorizedException('Invalid credentials');
     }
-
-    const jti = uuidv4();
-    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role, jti });
-
-    return {
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        first_name: user.firstName,
-        last_name: user.lastName,
-        full_name: `${user.firstName} ${user.lastName}`,
-        phone: user.phone,
-        created_at: user.createdAt.toISOString(),
-      },
-    };
+    return { token: this.generateToken(user), user: this.formatUser(user) };
   }
 
   async signup(dto: SignupDto) {
@@ -59,7 +60,6 @@ export class AuthService {
     if (existing) {
       throw new ConflictException('Email already registered');
     }
-
     const hashed = await bcrypt.hash(dto.password, 12);
     const user = await this.prisma.user.create({
       data: {
@@ -67,29 +67,61 @@ export class AuthService {
         encryptedPassword: hashed,
         firstName: dto.first_name,
         lastName: dto.last_name,
-        phone: dto.phone || "",
+        phone: dto.phone || '',
       },
     });
-
-    const jti = uuidv4();
-    const token = this.jwtService.sign({ sub: user.id, email: user.email, role: user.role, jti });
-
-    return {
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        role: user.role,
-        first_name: user.firstName,
-        last_name: user.lastName,
-        full_name: `${user.firstName} ${user.lastName}`,
-        phone: user.phone,
-        created_at: user.createdAt.toISOString(),
-      },
-    };
+    return { token: this.generateToken(user), user: this.formatUser(user) };
   }
 
   async logout(jti: string) {
     await this.prisma.jwtDenylist.create({ data: { jti } });
+  }
+
+  async refresh(userId: number, oldJti: string) {
+    await this.prisma.jwtDenylist.create({ data: { jti: oldJti } });
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+    return { token: this.generateToken(user), user: this.formatUser(user) };
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // Return success even if not found to prevent email enumeration
+      return { message: 'If the email exists, a reset link has been sent' };
+    }
+    const token = uuidv4();
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { resetPasswordToken: token, resetPasswordSentAt: new Date() },
+    });
+    // In production, send email with token. For now, return token directly.
+    return { message: 'If the email exists, a reset link has been sent', reset_token: token };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.prisma.user.findFirst({ where: { resetPasswordToken: token } });
+    if (!user) {
+      throw new NotFoundException('Invalid or expired reset token');
+    }
+    // Check if token is older than 24 hours
+    if (user.resetPasswordSentAt) {
+      const hoursSince = (Date.now() - user.resetPasswordSentAt.getTime()) / (1000 * 60 * 60);
+      if (hoursSince > 24) {
+        throw new UnauthorizedException('Reset token has expired');
+      }
+    }
+    const hashed = await bcrypt.hash(newPassword, 12);
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        encryptedPassword: hashed,
+        resetPasswordToken: null,
+        resetPasswordSentAt: null,
+      },
+    });
+    return { message: 'Password reset successfully' };
   }
 }

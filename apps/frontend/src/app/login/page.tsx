@@ -45,6 +45,7 @@ export default function LoginPage() {
           <button type="submit" disabled={isLoading} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition">{isLoading ? 'Logging in...' : 'Log In'}</button>
         </form>
         <p className="mt-4 text-center text-sm text-gray-600">Don&apos;t have an account? <Link href="/signup" className="text-blue-600 hover:underline">Sign up</Link></p>
+        <p className="text-center text-sm text-gray-600"><Link href="/forgot-password" className="text-blue-600 hover:underline">Forgot your password?</Link></p>
       </div>
     </main>
   );

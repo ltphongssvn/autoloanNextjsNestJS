@@ -1,5 +1,5 @@
 // apps/backend/src/applications/applications.service.ts
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateApplicationDto } from './create-application.dto';
 import { ApplicationStatus } from '@prisma/client';
@@ -61,6 +61,43 @@ export class ApplicationsService {
     return application;
   }
 
+  async update(id: number, userId: number, dto: CreateApplicationDto) {
+    const application = await this.prisma.application.findUnique({ where: { id } });
+    if (!application) {
+      throw new NotFoundException(`Application #${id} not found`);
+    }
+    if (application.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (application.status !== 'draft') {
+      throw new UnprocessableEntityException('Only draft applications can be updated');
+    }
+    return this.prisma.application.update({
+      where: { id },
+      data: {
+        loanAmount: dto.loanAmount ?? application.loanAmount,
+        downPayment: dto.downPayment ?? application.downPayment,
+        loanTerm: dto.loanTerm ?? application.loanTerm,
+        dob: dto.dob ? new Date(dto.dob) : application.dob,
+      },
+    });
+  }
+
+  async remove(id: number, userId: number) {
+    const application = await this.prisma.application.findUnique({ where: { id } });
+    if (!application) {
+      throw new NotFoundException(`Application #${id} not found`);
+    }
+    if (application.userId !== userId) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (application.status !== 'draft') {
+      throw new UnprocessableEntityException('Only draft applications can be deleted');
+    }
+    await this.prisma.application.delete({ where: { id } });
+    return { message: 'Application deleted' };
+  }
+
   async updateStatus(id: number, status: ApplicationStatus, userId: number) {
     const application = await this.prisma.application.findUnique({ where: { id } });
     if (!application) {
@@ -82,7 +119,6 @@ export class ApplicationsService {
         toStatus: status,
       },
     });
-    // Send notification
     const user = await this.prisma.user.findUnique({ where: { id: application.userId } });
     if (user?.email) {
       if (status === 'approved') {
@@ -93,7 +129,6 @@ export class ApplicationsService {
         await this.notifications.notifyStatusChange(user.email, application.applicationNumber ?? '', fromStatus, status);
       }
     }
-
     return updated;
   }
 }
