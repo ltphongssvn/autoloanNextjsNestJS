@@ -3,6 +3,7 @@ import { ApplicationsController } from './applications.controller';
 import { ApplicationsService } from './applications.service';
 import { StatusHistoryService } from './status-history.service';
 import { ApplicationWorkflowService } from './application-workflow.service';
+import { AgreementPdfService } from './agreement-pdf.service';
 import { JwtPayload } from '../auth/jwt.strategy';
 
 describe('ApplicationsController', () => {
@@ -18,6 +19,7 @@ describe('ApplicationsController', () => {
   };
   const mockHistoryService = { findByApplication: jest.fn() };
   const mockWorkflowService = { submit: jest.fn(), sign: jest.fn() };
+  const mockAgreementPdfService = { generate: jest.fn() };
 
   const customerReq = () => ({
     user: { sub: 1, email: 'c@test.com', role: 'customer', jti: 'j' } as JwtPayload,
@@ -34,6 +36,7 @@ describe('ApplicationsController', () => {
       mockService as unknown as ApplicationsService,
       mockHistoryService as unknown as StatusHistoryService,
       mockWorkflowService as unknown as ApplicationWorkflowService,
+      mockAgreementPdfService as unknown as AgreementPdfService,
     );
     jest.clearAllMocks();
   });
@@ -110,6 +113,18 @@ describe('ApplicationsController', () => {
       const result = await controller.sign(1, customerReq(), { signature_data: 'base64sig' });
       expect(mockWorkflowService.sign).toHaveBeenCalledWith(1, 1, 'base64sig');
       expect(result.status).toBe('signed');
+    });
+  });
+
+  describe('agreementPdf', () => {
+    it('should send pdf buffer', async () => {
+      const buf = Buffer.from('test-pdf');
+      mockAgreementPdfService.generate.mockResolvedValue({ buffer: buf, filename: 'loan_agreement_AL-0001.txt' });
+      const mockRes = { set: jest.fn(), send: jest.fn() };
+      await controller.agreementPdf(1, customerReq(), mockRes as any);
+      expect(mockAgreementPdfService.generate).toHaveBeenCalledWith(1, 1);
+      expect(mockRes.set).toHaveBeenCalledWith(expect.objectContaining({ 'Content-Type': 'application/octet-stream' }));
+      expect(mockRes.send).toHaveBeenCalledWith(buf);
     });
   });
 
