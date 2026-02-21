@@ -12,12 +12,18 @@ vi.mock('next/navigation', () => ({
 const mockGet = vi.fn();
 const mockUpdateStatus = vi.fn();
 const mockHistory = vi.fn();
+const mockSubmit = vi.fn();
+const mockSign = vi.fn();
+const mockAgreementPdf = vi.fn();
 vi.mock('../../../../services/api', () => ({
   api: {
     applications: {
       get: (...args: unknown[]) => mockGet(...args),
       updateStatus: (...args: unknown[]) => mockUpdateStatus(...args),
       history: (...args: unknown[]) => mockHistory(...args),
+      submit: (...args: unknown[]) => mockSubmit(...args),
+      sign: (...args: unknown[]) => mockSign(...args),
+      agreementPdf: (...args: unknown[]) => mockAgreementPdf(...args),
     },
     documents: {
       list: vi.fn().mockResolvedValue({ data: [] }),
@@ -181,15 +187,130 @@ describe('ApplicationDetailPage', () => {
     await waitFor(() => expect(screen.getByText('No status changes yet.')).toBeInTheDocument());
   });
 
-  it('should render Notes section', async () => {
-    mockGet.mockResolvedValue({ data: baseApp });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('No documents uploaded yet.')).toBeInTheDocument());
-  });
-});
-
   it('should render Documents section', async () => {
     mockGet.mockResolvedValue({ data: baseApp });
     render(<ApplicationDetailPage />);
     await waitFor(() => expect(screen.getByText('Documents')).toBeInTheDocument());
   });
+
+  it('should show Submit button for customer with draft app', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
+  });
+
+  it('should handle submit', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
+    mockSubmit.mockResolvedValue({ data: { ...baseApp, status: 'submitted' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(1));
+  });
+
+  it('should show error on submit failure', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
+    mockSubmit.mockRejectedValue(new Error('Incomplete'));
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Incomplete'));
+  });
+
+  it('should handle non-Error submit failure', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
+    mockSubmit.mockRejectedValue('fail');
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to submit application'));
+  });
+
+  it('should show Sign and Download for customer with approved app', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByText('Sign Agreement')).toBeInTheDocument();
+      expect(screen.getByText('Download Agreement')).toBeInTheDocument();
+    });
+  });
+
+  it('should handle sign', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    mockSign.mockResolvedValue({ data: { ...baseApp, status: 'signed' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Sign Agreement')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Sign Agreement'));
+    await waitFor(() => expect(mockSign).toHaveBeenCalledWith(1, 'electronic-signature'));
+  });
+
+  it('should show error on sign failure', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    mockSign.mockRejectedValue(new Error('Sign error'));
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Sign Agreement')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Sign Agreement'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Sign error'));
+  });
+
+  it('should handle non-Error sign failure', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    mockSign.mockRejectedValue('fail');
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Sign Agreement')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Sign Agreement'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to sign agreement'));
+  });
+
+  it('should handle PDF download', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    const blob = new Blob(['pdf']);
+    mockAgreementPdf.mockResolvedValue(blob);
+    const createObjectURL = vi.fn().mockReturnValue('blob:url');
+    const revokeObjectURL = vi.fn();
+    global.URL.createObjectURL = createObjectURL;
+    global.URL.revokeObjectURL = revokeObjectURL;
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Download Agreement')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download Agreement'));
+    await waitFor(() => {
+      expect(mockAgreementPdf).toHaveBeenCalledWith(1);
+      expect(revokeObjectURL).toHaveBeenCalled();
+    });
+  });
+
+  it('should show error on PDF download failure', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    mockAgreementPdf.mockRejectedValue(new Error('PDF error'));
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Download Agreement')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download Agreement'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('PDF error'));
+  });
+
+  it('should handle non-Error PDF download failure', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+    mockAgreementPdf.mockRejectedValue('fail');
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Download Agreement')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download Agreement'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to download agreement'));
+  });
+
+  it('should show Download section for signed app', async () => {
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'signed' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => {
+      expect(screen.getByTestId('download-section')).toBeInTheDocument();
+      expect(screen.getByText('Download Agreement')).toBeInTheDocument();
+    });
+  });
+
+  it('should not show submit for non-customer', async () => {
+    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'loan_officer' } });
+    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Application AL-000001')).toBeInTheDocument());
+    expect(screen.queryByText('Submit Application')).toBeNull();
+  });
+});

@@ -51,7 +51,8 @@ export type ApplicationStatus =
   | 'under_review'
   | 'pending_documents'
   | 'approved'
-  | 'rejected';
+  | 'rejected'
+  | 'signed';
 
 export interface ApplicationLinks {
   self: string;
