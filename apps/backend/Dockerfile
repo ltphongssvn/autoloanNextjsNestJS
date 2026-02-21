@@ -1,4 +1,5 @@
-FROM node:20-alpine AS builder
+FROM node:22-alpine AS builder
+RUN npm install -g npm@11.10.1
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/backend/package.json apps/backend/
@@ -9,13 +10,13 @@ COPY apps/backend apps/backend
 RUN npx prisma generate --schema=apps/backend/prisma/schema.prisma
 RUN npm run build -w apps/backend
 
-FROM node:20-alpine
+FROM node:22-alpine
+RUN npm install -g npm@11.10.1
 WORKDIR /app
 COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/apps/backend/node_modules ./apps/backend/node_modules
 COPY --from=builder /app/apps/backend/dist ./apps/backend/dist
 COPY --from=builder /app/apps/backend/prisma ./apps/backend/prisma
 COPY --from=builder /app/apps/backend/package.json ./apps/backend/
 COPY --from=builder /app/packages/shared-types ./packages/shared-types
 EXPOSE 3001
-CMD ["sh", "-c", "npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma && node apps/backend/dist/main"]
+CMD ["sh", "-c", "node_modules/.bin/prisma migrate deploy --schema=apps/backend/prisma/schema.prisma && node apps/backend/dist/main"]
