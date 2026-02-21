@@ -73,6 +73,7 @@ model User {
   applicationNotes      ApplicationNote[]
   statusHistories       StatusHistory[]
   verifiedDocuments     Document[]        @relation("VerifiedBy")
+  apiKeys               ApiKey[]
 
   @@map("users")
 }
@@ -244,4 +245,22 @@ model JwtDenylist {
 
   @@index([jti])
   @@map("jwt_denylists")
+}
+
+model ApiKey {
+  id         Int       @id @default(autoincrement())
+  name       String
+  keyDigest  String    @unique @map("key_digest")
+  active     Boolean   @default(true)
+  expiresAt  DateTime? @map("expires_at")
+  lastUsedAt DateTime? @map("last_used_at")
+  userId     Int       @map("user_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+
+  user       User      @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([keyDigest])
+  @@map("api_keys")
 }

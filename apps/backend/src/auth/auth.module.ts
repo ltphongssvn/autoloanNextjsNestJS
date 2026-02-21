@@ -4,6 +4,8 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { MfaController } from './mfa.controller';
+import { ApiKeysController } from './api-keys.controller';
+import { ApiKeysService } from './api-keys.service';
 import { MfaService } from './mfa.service';
 import { AuthService } from './auth.service';
 import { JwtStrategy } from './jwt.strategy';
@@ -19,8 +21,8 @@ import { PrismaService } from '../prisma.service';
       signOptions: { expiresIn: Number(process.env.JWT_EXPIRATION) || 3600 },
     }),
   ],
-  controllers: [AuthController, MfaController],
-  providers: [AuthService, MfaService, JwtStrategy, JwtAuthGuard, RolesGuard, PrismaService],
+  controllers: [AuthController, MfaController, ApiKeysController],
+  providers: [AuthService, MfaService, ApiKeysService, JwtStrategy, JwtAuthGuard, RolesGuard, PrismaService],
   exports: [JwtModule, JwtAuthGuard, RolesGuard, AuthService],
 })
 export class AuthModule {}
