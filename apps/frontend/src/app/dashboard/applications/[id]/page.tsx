@@ -16,6 +16,7 @@ export default function ApplicationDetailPage() {
   const [application, setApplication] = useState<Application | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     async function fetchApplication() {
@@ -40,11 +41,52 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  const handleSubmit = async () => {
+    try {
+      const res = await api.applications.submit(Number(id));
+      setApplication(res.data ?? res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit application');
+    }
+  };
+
+  const handleSign = async () => {
+    try {
+      const res = await api.applications.sign(Number(id), 'electronic-signature');
+      setApplication(res.data ?? res);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sign agreement');
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    setDownloading(true);
+    try {
+      const blob = await api.applications.agreementPdf(Number(id));
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `loan_agreement_${application?.application_number || id}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to download agreement');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (isLoading) return <div role="status" className="p-8 text-center text-gray-500">Loading...</div>;
   if (error) return <div role="alert" className="p-8 text-center text-red-600">{error}</div>;
   if (!application) return <div className="p-8 text-center text-gray-500">Application not found</div>;
 
   const isStaff = user?.role === 'loan_officer' || user?.role === 'underwriter';
+  const isCustomer = user?.role === 'customer';
+  const canSubmit = isCustomer && application.status === 'draft';
+  const canSign = isCustomer && application.status === 'approved';
+  const canDownloadPdf = application.status === 'approved' || application.status === 'signed';
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8">
@@ -71,6 +113,34 @@ export default function ApplicationDetailPage() {
           </div>
         </dl>
       </div>
+
+      {canSubmit && (
+        <section data-testid="customer-actions" className="bg-white rounded-xl border p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-3">Actions</h2>
+          <button onClick={handleSubmit} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Submit Application</button>
+        </section>
+      )}
+
+      {canSign && (
+        <section data-testid="customer-actions" className="bg-white rounded-xl border p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-3">Actions</h2>
+          <div className="flex gap-3">
+            <button onClick={handleSign} className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition">Sign Agreement</button>
+            <button onClick={handleDownloadPdf} disabled={downloading} className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition disabled:opacity-50">
+              {downloading ? 'Downloading...' : 'Download Agreement'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {canDownloadPdf && !canSign && (
+        <section data-testid="download-section" className="bg-white rounded-xl border p-6 mb-6">
+          <h2 className="text-lg font-semibold mb-3">Agreement</h2>
+          <button onClick={handleDownloadPdf} disabled={downloading} className="px-4 py-2 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition disabled:opacity-50">
+            {downloading ? 'Downloading...' : 'Download Agreement'}
+          </button>
+        </section>
+      )}
 
       {isStaff && application.status === 'submitted' && (
         <section data-testid="staff-actions" className="bg-white rounded-xl border p-6 mb-6">
