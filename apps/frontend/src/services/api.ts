@@ -74,6 +74,19 @@ export const api = {
     list: (applicationId: number) => request(`/applications/${applicationId}/notes`),
     create: (applicationId: number, data: Record<string, unknown>) => request(`/applications/${applicationId}/notes`, { method: 'POST', body: JSON.stringify(data) }),
   },
+  mfa: {
+    status: () => request('/auth/mfa/status'),
+    setup: () => request('/auth/mfa/setup', { method: 'POST' }),
+    enable: (code: string) => request('/auth/mfa/enable', { method: 'POST', body: JSON.stringify({ code }) }),
+    disable: (code: string) => request('/auth/mfa/disable', { method: 'POST', body: JSON.stringify({ code }) }),
+    verify: (code: string) => request('/auth/mfa/verify', { method: 'POST', body: JSON.stringify({ code }) }),
+  },
+  apiKeys: {
+    list: () => request('/auth/api-keys'),
+    create: (name: string, expiresAt?: string) => request('/auth/api-keys', { method: 'POST', body: JSON.stringify({ name, expires_at: expiresAt }) }),
+    revoke: (id: number) => request(`/auth/api-keys/${id}/revoke`, { method: 'PATCH' }),
+    remove: (id: number) => request(`/auth/api-keys/${id}`, { method: 'DELETE' }),
+  },
   users: {
     me: () => request('/users/me'),
     updateProfile: (data: Record<string, string>) => request('/users/me', { method: 'PATCH', body: JSON.stringify(data) }),
