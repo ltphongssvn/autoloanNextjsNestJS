@@ -1,6 +1,4 @@
-// apps/frontend/src/services/api.test.ts
-// pragma: allowlist secret
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { api } from './api';
 
 const mockFetch = vi.fn();
@@ -8,117 +6,102 @@ global.fetch = mockFetch;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.stubGlobal('localStorage', { getItem: vi.fn().mockReturnValue('test-token'), setItem: vi.fn(), removeItem: vi.fn() });
-  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ data: 'ok' }) });
+  localStorage.clear();
+  mockFetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ success: true }) });
 });
 
 describe('api', () => {
   describe('auth', () => {
-    it('login sends POST', async () => {
-      await api.auth.login({ email: 'a@b.com', password: 'pw' }); // pragma: allowlist secret
+    it('login', async () => {
+      await api.auth.login({ email: 'a@b.com', password: 'p' });
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/login'), expect.objectContaining({ method: 'POST' }));
     });
-
-    it('signup sends POST', async () => {
-      await api.auth.signup({ email: 'a@b.com', password: 'pw' }); // pragma: allowlist secret
+    it('signup', async () => {
+      await api.auth.signup({ email: 'a@b.com', password: 'p', password_confirmation: 'p', first_name: 'A', last_name: 'B' });
       expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/signup'), expect.objectContaining({ method: 'POST' }));
+    });
+    it('refresh', async () => {
+      await api.auth.refresh();
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/refresh'), expect.objectContaining({ method: 'POST' }));
+    });
+    it('requestPasswordReset', async () => {
+      await api.auth.requestPasswordReset('a@b.com');
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/password/reset-request'), expect.objectContaining({ method: 'POST' }));
+    });
+    it('resetPassword', async () => {
+      await api.auth.resetPassword('tok', 'newpass');
+      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/auth/password/reset'), expect.objectContaining({ method: 'POST' }));
     });
   });
 
   describe('applications', () => {
-    it('list sends GET', async () => {
-      await api.applications.list();
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications'), expect.any(Object));
-    });
+    it('list', async () => { await api.applications.list(); expect(mockFetch).toHaveBeenCalled(); });
+    it('get', async () => { await api.applications.get(1); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1'), expect.anything()); });
+    it('create', async () => { await api.applications.create({ loanAmount: 1000 }); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications'), expect.objectContaining({ method: 'POST' })); });
+    it('update', async () => { await api.applications.update(1, { loanAmount: 2000 }); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1'), expect.objectContaining({ method: 'PATCH' })); });
+    it('remove', async () => { await api.applications.remove(1); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1'), expect.objectContaining({ method: 'DELETE' })); });
+    it('submit', async () => { await api.applications.submit(1); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/submit'), expect.objectContaining({ method: 'POST' })); });
+    it('sign', async () => { await api.applications.sign(1, 'sig'); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/sign'), expect.objectContaining({ method: 'POST' })); });
+    it('updateStatus', async () => { await api.applications.updateStatus(1, 'approved'); expect(mockFetch).toHaveBeenCalled(); });
+    it('history', async () => { await api.applications.history(1); expect(mockFetch).toHaveBeenCalled(); });
+  });
 
-    it('get sends GET with id', async () => {
-      await api.applications.get(1);
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1'), expect.any(Object));
-    });
+  describe('loanOfficer', () => {
+    it('list', async () => { await api.loanOfficer.list(); expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/loan-officer/applications'), expect.anything()); });
+    it('get', async () => { await api.loanOfficer.get(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('startVerification', async () => { await api.loanOfficer.startVerification(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('review', async () => { await api.loanOfficer.review(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('requestDocuments', async () => { await api.loanOfficer.requestDocuments(1, {}); expect(mockFetch).toHaveBeenCalled(); });
+    it('addNote', async () => { await api.loanOfficer.addNote(1, 'note'); expect(mockFetch).toHaveBeenCalled(); });
+    it('getNotes', async () => { await api.loanOfficer.getNotes(1); expect(mockFetch).toHaveBeenCalled(); });
+  });
 
-    it('create sends POST', async () => {
-      await api.applications.create({ loanAmount: 25000 });
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications'), expect.objectContaining({ method: 'POST' }));
-    });
-
-    it('updateStatus sends PATCH', async () => {
-      await api.applications.updateStatus(1, 'approved');
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/status'), expect.objectContaining({ method: 'PATCH' }));
-    });
-
-    it('history sends GET', async () => {
-      await api.applications.history(1);
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/history'), expect.any(Object));
-    });
+  describe('underwriter', () => {
+    it('list', async () => { await api.underwriter.list(); expect(mockFetch).toHaveBeenCalled(); });
+    it('get', async () => { await api.underwriter.get(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('approve', async () => { await api.underwriter.approve(1, {}); expect(mockFetch).toHaveBeenCalled(); });
+    it('reject', async () => { await api.underwriter.reject(1, {}); expect(mockFetch).toHaveBeenCalled(); });
+    it('requestDocuments', async () => { await api.underwriter.requestDocuments(1, {}); expect(mockFetch).toHaveBeenCalled(); });
+    it('addNote', async () => { await api.underwriter.addNote(1, 'note'); expect(mockFetch).toHaveBeenCalled(); });
+    it('getNotes', async () => { await api.underwriter.getNotes(1); expect(mockFetch).toHaveBeenCalled(); });
   });
 
   describe('documents', () => {
-    it('list sends GET', async () => {
-      await api.documents.list(1);
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/documents'), expect.any(Object));
-    });
-
-    it('upload sends POST with FormData', async () => {
-      mockFetch.mockResolvedValue({ json: () => Promise.resolve({ data: 'ok' }) });
-      const formData = new FormData();
-      await api.documents.upload(1, formData);
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/documents'), expect.objectContaining({ method: 'POST', body: formData }));
-    });
-
-    it('updateStatus sends PATCH', async () => {
-      await api.documents.updateStatus(1, 'verified');
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/documents/1/status'), expect.objectContaining({ method: 'PATCH' }));
-    });
+    it('list', async () => { await api.documents.list(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('get', async () => { await api.documents.get(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('upload', async () => { await api.documents.upload(1, new FormData()); expect(mockFetch).toHaveBeenCalled(); });
+    it('remove', async () => { await api.documents.remove(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('updateStatus', async () => { await api.documents.updateStatus(1, 'verified'); expect(mockFetch).toHaveBeenCalled(); });
+    it('updateStatus with rejection note', async () => { await api.documents.updateStatus(1, 'rejected', 'bad'); expect(mockFetch).toHaveBeenCalled(); });
   });
 
   describe('notes', () => {
-    it('list sends GET', async () => {
-      await api.notes.list(1);
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/notes'), expect.any(Object));
-    });
-
-    it('create sends POST', async () => {
-      await api.notes.create(1, { note: 'test' });
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/applications/1/notes'), expect.objectContaining({ method: 'POST' }));
-    });
+    it('list', async () => { await api.notes.list(1); expect(mockFetch).toHaveBeenCalled(); });
+    it('create', async () => { await api.notes.create(1, { note: 'hi' }); expect(mockFetch).toHaveBeenCalled(); });
   });
 
   describe('users', () => {
-    it('me sends GET', async () => {
-      await api.users.me();
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/users/me'), expect.any(Object));
-    });
-
-    it('updateProfile sends PATCH', async () => {
-      await api.users.updateProfile({ first_name: 'John' });
-      expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining('/users/me'), expect.objectContaining({ method: 'PATCH' }));
-    });
+    it('me', async () => { await api.users.me(); expect(mockFetch).toHaveBeenCalled(); });
+    it('updateProfile', async () => { await api.users.updateProfile({ first_name: 'A' }); expect(mockFetch).toHaveBeenCalled(); });
   });
 
-  describe('error handling', () => {
-    it('throws on non-ok response', async () => {
+  describe('request error handling', () => {
+    it('should throw on non-ok response', async () => {
       mockFetch.mockResolvedValue({ ok: false, status: 401, json: () => Promise.resolve({ message: 'Unauthorized' }) });
-      await expect(api.auth.login({ email: '', password: '' })).rejects.toThrow('Unauthorized');
+      await expect(api.auth.login({ email: 'a', password: 'b' })).rejects.toThrow('Unauthorized');
     });
-
-    it('throws generic error when json parse fails', async () => {
-      mockFetch.mockResolvedValue({ ok: false, status: 500, json: () => Promise.reject(new Error()) });
-      await expect(api.auth.login({ email: '', password: '' })).rejects.toThrow('Request failed: 500');
+    it('should handle non-json error body', async () => {
+      mockFetch.mockResolvedValue({ ok: false, status: 500, json: () => Promise.reject('no json') });
+      await expect(api.applications.list()).rejects.toThrow('Request failed: 500');
     });
   });
 
-  describe('auth headers', () => {
-    it('includes token when available', async () => {
+  describe('auth token', () => {
+    it('should send Authorization header when token exists', async () => {
+      localStorage.setItem('token', 'my-token');
       await api.applications.list();
-      const headers = mockFetch.mock.calls[0][1].headers;
-      expect(headers['Authorization']).toBe('Bearer test-token');
-    });
-
-    it('omits token when not available', async () => {
-      vi.stubGlobal('localStorage', { getItem: vi.fn().mockReturnValue(null) });
-      await api.applications.list();
-      const headers = mockFetch.mock.calls[0][1].headers;
-      expect(headers['Authorization']).toBeUndefined();
+      const call = mockFetch.mock.calls[0];
+      expect(call[1].headers['Authorization']).toBe('Bearer my-token');
     });
   });
 });

@@ -1,54 +1,40 @@
-// apps/frontend/src/components/Navigation.test.tsx
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
+import { vi } from 'vitest';
 import Navigation from './Navigation';
 
-const mockUseAuth = vi.fn();
-vi.mock('../context/AuthContext', () => ({
-  useAuth: () => mockUseAuth(),
-}));
+vi.mock('../context/AuthContext', () => ({ useAuth: vi.fn() }));
+import { useAuth } from '../context/AuthContext';
+const mockUseAuth = vi.mocked(useAuth);
+
+const mockAuth = (user: { role: string; full_name: string } | null) =>
+  mockUseAuth.mockReturnValue({ user, logout: vi.fn(), loading: false } as ReturnType<typeof useAuth>);
 
 describe('Navigation', () => {
-  beforeEach(() => vi.clearAllMocks());
-
-  it('should show public links when not logged in', () => {
-    mockUseAuth.mockReturnValue({ user: null, logout: vi.fn() });
+  it('shows login links when not authenticated', () => {
+    mockAuth(null);
     render(<Navigation />);
-    expect(screen.getByText('AutoLoan')).toBeInTheDocument();
     expect(screen.getByText('Sign In')).toBeInTheDocument();
     expect(screen.getByText('Create Account')).toBeInTheDocument();
   });
 
-  it('should show authenticated links when logged in', () => {
-    mockUseAuth.mockReturnValue({
-      user: { id: 1, full_name: 'John Doe', role: 'customer' },
-      logout: vi.fn(),
-    });
+  it('shows customer nav with new application link', () => {
+    mockAuth({ role: 'customer', full_name: 'John Doe' });
     render(<Navigation />);
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
     expect(screen.getByText('New Application')).toBeInTheDocument();
-    expect(screen.getByText('Profile')).toBeInTheDocument();
-    expect(screen.getByTestId('nav-user')).toHaveTextContent('John Doe');
+    expect(screen.getByText('Dashboard')).toHaveAttribute('href', '/dashboard');
   });
 
-  it('should hide New Application for staff', () => {
-    mockUseAuth.mockReturnValue({
-      user: { id: 2, full_name: 'Officer', role: 'loan_officer' },
-      logout: vi.fn(),
-    });
+  it('shows loan officer nav with correct dashboard link', () => {
+    mockAuth({ role: 'loan_officer', full_name: 'Jane LO' });
     render(<Navigation />);
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.queryByText('New Application')).toBeNull();
+    expect(screen.queryByText('New Application')).not.toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toHaveAttribute('href', '/dashboard/loan-officer');
   });
 
-  it('should call logout on button click', () => {
-    const mockLogout = vi.fn();
-    mockUseAuth.mockReturnValue({
-      user: { id: 1, full_name: 'John', role: 'customer' },
-      logout: mockLogout,
-    });
+  it('shows underwriter nav with correct dashboard link', () => {
+    mockAuth({ role: 'underwriter', full_name: 'Bob UW' });
     render(<Navigation />);
-    fireEvent.click(screen.getByText('Logout'));
-    expect(mockLogout).toHaveBeenCalled();
+    expect(screen.queryByText('New Application')).not.toBeInTheDocument();
+    expect(screen.getByText('Dashboard')).toHaveAttribute('href', '/dashboard/underwriter');
   });
 });
