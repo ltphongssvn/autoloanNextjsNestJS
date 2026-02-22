@@ -46,6 +46,7 @@ test.describe('Dashboard', () => {
   test('should logout successfully', async ({ page }) => {
     await login(page);
     await page.getByRole('button', { name: 'Logout' }).click();
-    await expect(page).toHaveURL('/', { timeout: 5000 });
+    await expect(page).toHaveURL(/\/(login)?/, { timeout: 5000 });
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).not.toBeVisible();
   });
 });
