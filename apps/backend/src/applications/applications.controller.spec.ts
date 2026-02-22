@@ -23,9 +23,11 @@ describe('ApplicationsController', () => {
 
   const customerReq = () => ({
     user: { sub: 1, email: 'c@test.com', role: 'customer', scopes: [], jti: 'j' } as JwtPayload,
+    path: '/api/v1/applications',
   });
   const staffReq = () => ({
     user: { sub: 2, email: 's@test.com', role: 'loan_officer', scopes: [], jti: 'j' } as JwtPayload,
+    path: '/api/v1/applications',
   });
 
   const fullApp = {
@@ -52,21 +54,24 @@ describe('ApplicationsController', () => {
   });
 
   describe('findAll', () => {
-    it('should call findAllForUser for customers', async () => {
-      mockService.findAllForUser.mockResolvedValue({ data: [], pagination: {} });
-      await controller.findAll(customerReq());
+    it('should call findAllForUser for customers with pagination metadata', async () => {
+      mockService.findAllForUser.mockResolvedValue({ data: [fullApp], pagination: { page: 1, per_page: 25, total: 1 } });
+      const result = await controller.findAll(customerReq());
       expect(mockService.findAllForUser).toHaveBeenCalledWith(1, expect.any(Object));
+      expect(result.pagination.current_page).toBe(1);
+      expect(result.pagination.total_count).toBe(1);
+      expect(result.pagination['@firstLink']).toContain('page=1');
     });
 
     it('should call findAll for staff', async () => {
-      mockService.findAll.mockResolvedValue({ data: [], pagination: {} });
+      mockService.findAll.mockResolvedValue({ data: [], pagination: { page: 1, per_page: 25, total: 0 } });
       await controller.findAll(staffReq());
       expect(mockService.findAll).toHaveBeenCalledWith(expect.any(Object));
     });
 
     it('should pass query params', async () => {
-      mockService.findAll.mockResolvedValue({ data: [], pagination: {} });
-      await controller.findAll(staffReq(), "status eq 'draft'", 'created_at desc', 'submitted', '2', '10');
+      mockService.findAll.mockResolvedValue({ data: [], pagination: { page: 2, per_page: 10, total: 50 } });
+      const result = await controller.findAll(staffReq(), "status eq 'draft'", 'created_at desc', 'submitted', '2', '10');
       expect(mockService.findAll).toHaveBeenCalledWith({
         $filter: "status eq 'draft'",
         $orderby: 'created_at desc',
@@ -74,10 +79,13 @@ describe('ApplicationsController', () => {
         page: 2,
         per_page: 10,
       });
+      expect(result.pagination.current_page).toBe(2);
+      expect(result.pagination['@nextLink']).toContain('page=3');
+      expect(result.pagination['@prevLink']).toContain('page=1');
     });
 
     it('should handle undefined query params', async () => {
-      mockService.findAllForUser.mockResolvedValue({ data: [], pagination: {} });
+      mockService.findAllForUser.mockResolvedValue({ data: [], pagination: { page: 1, per_page: 25, total: 0 } });
       await controller.findAll(customerReq(), undefined, undefined, undefined, undefined, undefined);
       expect(mockService.findAllForUser).toHaveBeenCalledWith(1, {
         $filter: undefined,
