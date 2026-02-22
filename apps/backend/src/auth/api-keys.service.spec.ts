@@ -26,29 +26,23 @@ describe('ApiKeysService', () => {
   });
 
   describe('list', () => {
-    it('should return user API keys', async () => {
-      const keys = [{ id: 1, name: 'test', active: true }];
+    it('should return keys with key_prefix and without keyDigest', async () => {
+      const keys = [{ id: 1, name: 'test', active: true, expiresAt: null, lastUsedAt: null, createdAt: new Date(), keyDigest: 'abcdef1234567890' }]; // pragma: allowlist secret
       mockPrisma.apiKey.findMany.mockResolvedValue(keys);
       const result = await service.list(1);
-      expect(result).toEqual(keys);
-      expect(mockPrisma.apiKey.findMany).toHaveBeenCalledWith({
-        where: { userId: 1 },
-        orderBy: { createdAt: 'desc' },
-        select: { id: true, name: true, active: true, expiresAt: true, lastUsedAt: true, createdAt: true },
-      });
+      expect(result[0].key_prefix).toBe('abcdef12');
+      expect((result[0] as any).keyDigest).toBeUndefined();
     });
   });
 
   describe('findOne', () => {
-    it('should return a single API key', async () => {
-      const key = { id: 1, name: 'test', active: true, expiresAt: null, lastUsedAt: null, createdAt: new Date() };
-      mockPrisma.apiKey.findFirst.mockResolvedValue(key);
-      const result = await service.findOne(1, 1);
-      expect(result).toEqual(key);
-      expect(mockPrisma.apiKey.findFirst).toHaveBeenCalledWith({
-        where: { id: 1, userId: 1 },
-        select: { id: true, name: true, active: true, expiresAt: true, lastUsedAt: true, createdAt: true },
+    it('should return key with key_prefix', async () => {
+      mockPrisma.apiKey.findFirst.mockResolvedValue({
+        id: 1, name: 'test', active: true, expiresAt: null, lastUsedAt: null, createdAt: new Date(), keyDigest: 'abcdef1234567890', // pragma: allowlist secret
       });
+      const result = await service.findOne(1, 1);
+      expect(result.key_prefix).toBe('abcdef12');
+      expect((result as any).keyDigest).toBeUndefined();
     });
     it('should throw NotFoundException when key not found', async () => {
       mockPrisma.apiKey.findFirst.mockResolvedValue(null);
@@ -57,14 +51,15 @@ describe('ApiKeysService', () => {
   });
 
   describe('create', () => {
-    it('should create and return key with plain text', async () => {
-      mockPrisma.apiKey.create.mockResolvedValue({ id: 1, name: 'test', active: true });
+    it('should return key with plain text and key_prefix', async () => {
+      mockPrisma.apiKey.create.mockResolvedValue({ id: 1, name: 'test', active: true, expiresAt: null, createdAt: new Date(), keyDigest: 'abcdef1234567890' }); // pragma: allowlist secret
       const result = await service.create(1, 'test');
       expect(result.key).toMatch(/^ak_/);
-      expect(mockPrisma.apiKey.create).toHaveBeenCalled();
+      expect(result.key_prefix).toBe('abcdef12');
+      expect((result as any).keyDigest).toBeUndefined();
     });
     it('should accept expiresAt', async () => {
-      mockPrisma.apiKey.create.mockResolvedValue({ id: 1, name: 'test', active: true });
+      mockPrisma.apiKey.create.mockResolvedValue({ id: 1, name: 'test', active: true, expiresAt: null, createdAt: new Date(), keyDigest: '1234567890abcdef' }); // pragma: allowlist secret
       const expires = new Date('2026-12-31');
       await service.create(1, 'test', expires);
       expect(mockPrisma.apiKey.create).toHaveBeenCalledWith(
@@ -108,25 +103,19 @@ describe('ApiKeysService', () => {
       expect(result).toEqual(apiKey);
     });
     it('should return null for empty key', async () => {
-      const result = await service.authenticate('');
-      expect(result).toBeNull();
+      expect(await service.authenticate('')).toBeNull();
     });
     it('should return null for inactive key', async () => {
       mockPrisma.apiKey.findUnique.mockResolvedValue({ id: 1, active: false });
-      const result = await service.authenticate('ak_test123');
-      expect(result).toBeNull();
+      expect(await service.authenticate('ak_test123')).toBeNull();
     });
     it('should return null for expired key', async () => {
-      mockPrisma.apiKey.findUnique.mockResolvedValue({
-        id: 1, active: true, expiresAt: new Date('2020-01-01'),
-      });
-      const result = await service.authenticate('ak_test123');
-      expect(result).toBeNull();
+      mockPrisma.apiKey.findUnique.mockResolvedValue({ id: 1, active: true, expiresAt: new Date('2020-01-01') });
+      expect(await service.authenticate('ak_test123')).toBeNull();
     });
     it('should return null when key not found', async () => {
       mockPrisma.apiKey.findUnique.mockResolvedValue(null);
-      const result = await service.authenticate('ak_invalid');
-      expect(result).toBeNull();
+      expect(await service.authenticate('ak_invalid')).toBeNull();
     });
   });
 });
