@@ -99,35 +99,49 @@ export class UnderwriterController {
   }
 
   @Post(':id/request-documents')
-  @ApiOperation({ summary: 'Request documents from applicant' })
+  @ApiOperation({ summary: 'Request documents (hyphenated)' })
   @ApiResponse({ status: 200, description: 'Documents requested' })
   async requestDocuments(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Body() body: { documents?: string[]; notes?: string },
   ) {
-    const updated = await this.workflowService.requestDocuments(id, req.user.sub);
-    const docs = body.documents || [];
-    if (docs.length > 0 || body.notes) {
-      const docList = docs.join(', ');
-      let noteText = `Documents requested: ${docList}`;
-      if (body.notes) noteText += `. Notes: ${body.notes}`;
-      await this.prisma.applicationNote.create({
-        data: {
-          applicationId: id,
-          userId: req.user.sub,
-          note: noteText,
-          internal: true,
-        },
-      });
-    }
-    return updated;
+    return this.handleRequestDocuments(id, req.user.sub, body);
+  }
+
+  @Post(':id/request_documents')
+  @ApiOperation({ summary: 'Request documents (Rails-compatible underscore)' })
+  @ApiResponse({ status: 200, description: 'Documents requested' })
+  async requestDocumentsUnderscore(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { documents?: string[]; notes?: string },
+  ) {
+    return this.handleRequestDocuments(id, req.user.sub, body);
   }
 
   @Post(':id/add-note')
-  @ApiOperation({ summary: 'Add a note to application' })
+  @ApiOperation({ summary: 'Add note (hyphenated)' })
   @ApiResponse({ status: 201, description: 'Note added' })
   addNote(
+    @Param('id', ParseIntPipe) id: number,
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { note: string; internal?: boolean },
+  ) {
+    return this.prisma.applicationNote.create({
+      data: {
+        applicationId: id,
+        userId: req.user.sub,
+        note: body.note,
+        internal: body.internal ?? true,
+      },
+    });
+  }
+
+  @Post(':id/add_note')
+  @ApiOperation({ summary: 'Add note (Rails-compatible underscore)' })
+  @ApiResponse({ status: 201, description: 'Note added' })
+  addNoteUnderscore(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: AuthenticatedRequest,
     @Body() body: { note: string; internal?: boolean },
@@ -150,5 +164,24 @@ export class UnderwriterController {
       orderBy: { createdAt: 'desc' },
       include: { user: true },
     });
+  }
+
+  private async handleRequestDocuments(id: number, userId: number, body: { documents?: string[]; notes?: string }) {
+    const updated = await this.workflowService.requestDocuments(id, userId);
+    const docs = body.documents || [];
+    if (docs.length > 0 || body.notes) {
+      const docList = docs.join(', ');
+      let noteText = `Documents requested: ${docList}`;
+      if (body.notes) noteText += `. Notes: ${body.notes}`;
+      await this.prisma.applicationNote.create({
+        data: {
+          applicationId: id,
+          userId,
+          note: noteText,
+          internal: true,
+        },
+      });
+    }
+    return updated;
   }
 }
