@@ -31,6 +31,8 @@ describe('AuthService', () => {
     lastName: 'Doe',
     phone: '555-0100',
     createdAt: new Date('2025-01-01'),
+    confirmedAt: null,
+    confirmationToken: null,
   };
 
   beforeEach(() => {
@@ -59,20 +61,74 @@ describe('AuthService', () => {
   });
 
   describe('signup', () => {
-    it('should create user and return token', async () => { // pragma: allowlist secret
+    it('should create user with confirmation token and return token', async () => { // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(mockUser);
       const result = await service.signup({
         email: 'new@test.com', password: 'pass123', first_name: 'John', last_name: 'Doe', // pragma: allowlist secret
       });
       expect(result.token).toBe('signed-jwt-token'); // pragma: allowlist secret
-      expect(mockPrisma.user.create).toHaveBeenCalled();
+      expect(result.confirmation_token).toBe('test-uuid');
+      expect(mockPrisma.user.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          confirmationToken: 'test-uuid',
+          confirmationSentAt: expect.any(Date),
+        }),
+      });
     });
     it('should throw when email exists', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       await expect(service.signup({
         email: 'test@test.com', password: 'p', first_name: 'A', last_name: 'B', // pragma: allowlist secret
       })).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('confirmEmail', () => {
+    it('should confirm email with valid token', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, confirmationToken: 'tok', confirmedAt: null });
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.confirmEmail('tok');
+      expect(result.message).toBe('Email confirmed successfully');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { confirmedAt: expect.any(Date), confirmationToken: null },
+      });
+    });
+    it('should throw for invalid token', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      await expect(service.confirmEmail('bad')).rejects.toThrow(NotFoundException);
+    });
+    it('should return already confirmed message', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, confirmationToken: 'tok', confirmedAt: new Date() });
+      const result = await service.confirmEmail('tok');
+      expect(result.message).toBe('Email already confirmed');
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('resendConfirmation', () => {
+    it('should generate new confirmation token for unconfirmed user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, confirmedAt: null });
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.resendConfirmation('test@test.com');
+      expect(result.confirmation_token).toBe('test-uuid');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({ confirmationToken: 'test-uuid' }),
+      });
+    });
+    it('should return success for non-existent email', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      const result = await service.resendConfirmation('none@test.com');
+      expect(result.message).toContain('If the email exists');
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
+    });
+    it('should return already confirmed for confirmed user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, confirmedAt: new Date() });
+      const result = await service.resendConfirmation('test@test.com');
+      expect(result.message).toBe('Email already confirmed');
+      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
   });
 

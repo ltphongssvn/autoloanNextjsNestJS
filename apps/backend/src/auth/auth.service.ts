@@ -61,6 +61,7 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
     const hashed = await bcrypt.hash(dto.password, 12);
+    const confirmationToken = uuidv4();
     const user = await this.prisma.user.create({
       data: {
         email: dto.email,
@@ -68,9 +69,50 @@ export class AuthService {
         firstName: dto.first_name,
         lastName: dto.last_name,
         phone: dto.phone || '',
+        confirmationToken,
+        confirmationSentAt: new Date(),
       },
     });
-    return { token: this.generateToken(user), user: this.formatUser(user) };
+    // In production, send confirmation email with token
+    return { token: this.generateToken(user), user: this.formatUser(user), confirmation_token: confirmationToken };
+  }
+
+  async confirmEmail(token: string) {
+    const user = await this.prisma.user.findFirst({ where: { confirmationToken: token } });
+    if (!user) {
+      throw new NotFoundException('Invalid confirmation token');
+    }
+    if (user.confirmedAt) {
+      return { message: 'Email already confirmed' };
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        confirmedAt: new Date(),
+        confirmationToken: null,
+      },
+    });
+    return { message: 'Email confirmed successfully' };
+  }
+
+  async resendConfirmation(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return { message: 'If the email exists, a confirmation link has been sent' };
+    }
+    if (user.confirmedAt) {
+      return { message: 'Email already confirmed' };
+    }
+    const confirmationToken = uuidv4();
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        confirmationToken,
+        confirmationSentAt: new Date(),
+      },
+    });
+    // In production, send confirmation email
+    return { message: 'If the email exists, a confirmation link has been sent', confirmation_token: confirmationToken };
   }
 
   async logout(jti: string) {
@@ -89,7 +131,6 @@ export class AuthService {
   async requestPasswordReset(email: string) {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      // Return success even if not found to prevent email enumeration
       return { message: 'If the email exists, a reset link has been sent' };
     }
     const token = uuidv4();
@@ -97,7 +138,6 @@ export class AuthService {
       where: { id: user.id },
       data: { resetPasswordToken: token, resetPasswordSentAt: new Date() },
     });
-    // In production, send email with token. For now, return token directly.
     return { message: 'If the email exists, a reset link has been sent', reset_token: token };
   }
 
@@ -106,7 +146,6 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('Invalid or expired reset token');
     }
-    // Check if token is older than 24 hours
     if (user.resetPasswordSentAt) {
       const hoursSince = (Date.now() - user.resetPasswordSentAt.getTime()) / (1000 * 60 * 60);
       if (hoursSince > 24) {
