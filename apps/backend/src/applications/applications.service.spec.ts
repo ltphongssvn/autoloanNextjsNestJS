@@ -49,9 +49,10 @@ describe('ApplicationsService', () => {
   describe('create', () => {
     it('should create application with generated number', async () => {
       mockPrisma.application.count.mockResolvedValue(2);
-      mockTx.application.create.mockResolvedValue({ id: 1, applicationNumber: 'AL-000003' });
+      const year = new Date().getFullYear();
+      mockTx.application.create.mockResolvedValue({ id: 1, applicationNumber: `AL-${year}-00003` });
       const result = await service.create(1, { loanAmount: 25000 });
-      expect(result.applicationNumber).toBe('AL-000003');
+      expect(result.applicationNumber).toBe(`AL-${year}-00003`);
     });
 
     it('should save nested personal_info with address', async () => {
