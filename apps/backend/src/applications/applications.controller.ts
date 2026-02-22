@@ -39,7 +39,7 @@ export class ApplicationsController {
 
   @Get()
   @ApiOperation({ summary: 'List applications with OData filtering, sorting, and pagination' })
-  findAll(
+  async findAll(
     @Req() req: AuthenticatedRequest,
     @Query('$filter') $filter?: string,
     @Query('$orderby') $orderby?: string,
@@ -55,10 +55,14 @@ export class ApplicationsController {
       per_page: per_page ? parseInt(per_page, 10) : undefined,
     };
     const { sub, role } = req.user;
-    if (role === 'loan_officer' || role === 'underwriter') {
-      return this.applicationsService.findAll(query);
-    }
-    return this.applicationsService.findAllForUser(sub, query);
+    const result = (role === 'loan_officer' || role === 'underwriter')
+      ? await this.applicationsService.findAll(query)
+      : await this.applicationsService.findAllForUser(sub, query);
+
+    return {
+      data: result.data.map((app: any) => serializeApplication(app, { currentUserId: sub })),
+      pagination: result.pagination,
+    };
   }
 
   @Get(':id')
