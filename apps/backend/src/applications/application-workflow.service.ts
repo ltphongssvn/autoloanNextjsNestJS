@@ -122,10 +122,8 @@ export class ApplicationWorkflowService {
         signatureData,
         signedAt: new Date(),
         agreementAccepted: true,
-        status: ApplicationStatus.signed,
       },
     });
-    await this.createHistory(applicationId, userId, app.status, 'signed');
     return updated;
   }
 
