@@ -28,7 +28,7 @@ export class ApiKeysService {
       orderBy: { createdAt: 'desc' },
       select: { id: true, name: true, active: true, expiresAt: true, lastUsedAt: true, createdAt: true, keyDigest: true },
     });
-    return keys.map((k) => {
+    return keys.map((k: any) => {
       const { keyDigest, ...rest } = k;
       return { ...rest, key_prefix: keyDigest.slice(0, 8) };
     });
