@@ -3,7 +3,7 @@ import { Controller, Get, Post, Delete, Patch, Body, Param, ParseIntPipe, UseGua
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { ApiKeysService } from './api-keys.service';
 
-@Controller('auth/api-keys')
+@Controller(['auth/api-keys', 'auth/api_keys'])
 @UseGuards(JwtAuthGuard)
 export class ApiKeysController {
   constructor(private readonly apiKeysService: ApiKeysService) {}
