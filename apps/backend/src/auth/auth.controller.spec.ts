@@ -90,6 +90,20 @@ describe('AuthController', () => {
       expect(mockService.requestPasswordReset).toHaveBeenCalledWith('a@b.com'); // pragma: allowlist secret
       expect(result.message).toBe('sent');
     });
+
+    it('should fallback to empty string when no email provided', async () => {
+      mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
+      const result = await controller.requestPasswordReset({}); // pragma: allowlist secret
+      expect(mockService.requestPasswordReset).toHaveBeenCalledWith(''); // pragma: allowlist secret
+      expect(result.message).toBe('sent');
+    });
+
+    it('should fallback to empty string with empty user object', async () => {
+      mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
+      const result = await controller.requestPasswordReset({ user: { email: '' } }); // pragma: allowlist secret
+      expect(mockService.requestPasswordReset).toHaveBeenCalledWith(''); // pragma: allowlist secret
+      expect(result.message).toBe('sent');
+    });
   });
 
   describe('resetPassword', () => { // pragma: allowlist secret
@@ -106,6 +120,22 @@ describe('AuthController', () => {
         user: { reset_password_token: 'tok', password: 'new', password_confirmation: 'new' }, // pragma: allowlist secret
       });
       expect(mockService.resetPassword).toHaveBeenCalledWith('tok', 'new'); // pragma: allowlist secret
+      expect(result.message).toBe('done');
+    });
+
+    it('should fallback to empty strings when no fields provided', async () => { // pragma: allowlist secret
+      mockService.resetPassword.mockResolvedValue({ message: 'done' }); // pragma: allowlist secret
+      const result = await controller.resetPassword({}); // pragma: allowlist secret
+      expect(mockService.resetPassword).toHaveBeenCalledWith('', ''); // pragma: allowlist secret
+      expect(result.message).toBe('done');
+    });
+
+    it('should fallback to empty strings with empty user object', async () => { // pragma: allowlist secret
+      mockService.resetPassword.mockResolvedValue({ message: 'done' }); // pragma: allowlist secret
+      const result = await controller.resetPassword({ // pragma: allowlist secret
+        user: { reset_password_token: '', password: '', password_confirmation: '' }, // pragma: allowlist secret
+      });
+      expect(mockService.resetPassword).toHaveBeenCalledWith('', ''); // pragma: allowlist secret
       expect(result.message).toBe('done');
     });
   });
