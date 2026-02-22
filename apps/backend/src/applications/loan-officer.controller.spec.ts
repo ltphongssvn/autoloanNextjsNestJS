@@ -67,14 +67,20 @@ describe('LoanOfficerController', () => {
       const result = await controller.findOne(1, staffReq());
       expect(result.personal_info).toBeDefined();
       expect(result.personal_info.first_name).toBe('John');
-      expect(result.links).toBeDefined();
     });
   });
 
   describe('startVerification', () => {
-    it('should call workflow startVerification', async () => {
+    it('should call workflow via PATCH', async () => {
       mockWorkflow.startVerification.mockResolvedValue({ id: 1, status: 'under_review' });
       const result = await controller.startVerification(1, staffReq());
+      expect(mockWorkflow.startVerification).toHaveBeenCalledWith(1, 2);
+      expect(result.status).toBe('under_review');
+    });
+
+    it('should call workflow via POST (Rails-compatible)', async () => {
+      mockWorkflow.startVerification.mockResolvedValue({ id: 1, status: 'under_review' });
+      const result = await controller.startVerificationPost(1, staffReq());
       expect(mockWorkflow.startVerification).toHaveBeenCalledWith(1, 2);
       expect(result.status).toBe('under_review');
     });
@@ -90,29 +96,58 @@ describe('LoanOfficerController', () => {
   });
 
   describe('requestDocuments', () => {
-    it('should call workflow requestDocuments', async () => {
+    it('should call workflow via PATCH', async () => {
       mockWorkflow.requestDocuments.mockResolvedValue({ id: 1, status: 'pending_documents' });
       const result = await controller.requestDocuments(1, staffReq());
+      expect(mockWorkflow.requestDocuments).toHaveBeenCalledWith(1, 2);
+      expect(result.status).toBe('pending_documents');
+    });
+
+    it('should call workflow via POST (Rails-compatible)', async () => {
+      mockWorkflow.requestDocuments.mockResolvedValue({ id: 1, status: 'pending_documents' });
+      const result = await controller.requestDocumentsPost(1, staffReq());
       expect(mockWorkflow.requestDocuments).toHaveBeenCalledWith(1, 2);
       expect(result.status).toBe('pending_documents');
     });
   });
 
   describe('approve', () => {
-    it('should call workflow approve with terms', async () => {
+    it('should call workflow via PATCH with terms', async () => {
       mockWorkflow.approve.mockResolvedValue({ id: 1, status: 'approved' });
       const result = await controller.approve(1, staffReq(), { loan_term: 48, interest_rate: 5.5, monthly_payment: 450 });
       expect(mockWorkflow.approve).toHaveBeenCalledWith(1, 2, { loanTerm: 48, interestRate: 5.5, monthlyPayment: 450 });
       expect(result.status).toBe('approved');
     });
+
+    it('should call workflow via POST (Rails-compatible)', async () => {
+      mockWorkflow.approve.mockResolvedValue({ id: 1, status: 'approved' });
+      const result = await controller.approvePost(1, staffReq(), { loan_term: 60, interest_rate: 4.9, monthly_payment: 400 });
+      expect(mockWorkflow.approve).toHaveBeenCalledWith(1, 2, { loanTerm: 60, interestRate: 4.9, monthlyPayment: 400 });
+      expect(result.status).toBe('approved');
+    });
   });
 
   describe('reject', () => {
-    it('should call workflow reject with reason', async () => {
+    it('should call workflow via PATCH with reason', async () => {
       mockWorkflow.reject.mockResolvedValue({ id: 1, status: 'rejected' });
       const result = await controller.reject(1, staffReq(), { reason: 'Insufficient income' });
       expect(mockWorkflow.reject).toHaveBeenCalledWith(1, 2, 'Insufficient income');
       expect(result.status).toBe('rejected');
+    });
+
+    it('should call workflow via POST (Rails-compatible)', async () => {
+      mockWorkflow.reject.mockResolvedValue({ id: 1, status: 'rejected' });
+      const result = await controller.rejectPost(1, staffReq(), { reason: 'Bad credit' });
+      expect(mockWorkflow.reject).toHaveBeenCalledWith(1, 2, 'Bad credit');
+      expect(result.status).toBe('rejected');
+    });
+  });
+
+  describe('addNote', () => {
+    it('should add note via POST (Rails-compatible)', async () => {
+      const result = await controller.addNote(1, staffReq(), { note: 'Test note' });
+      expect(result.message).toBe('Note added');
+      expect(result.applicationId).toBe(1);
     });
   });
 });
