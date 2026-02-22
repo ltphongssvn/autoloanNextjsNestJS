@@ -1,5 +1,5 @@
 // apps/backend/src/auth/mfa.controller.ts
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Body, UseGuards, Request } from '@nestjs/common';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { MfaService } from './mfa.service';
 
@@ -24,8 +24,14 @@ export class MfaController {
     return this.mfaService.enable(req.user.sub, code);
   }
 
+  @Delete('disable')
+  disableDelete(@Request() req: any, @Body() body: { code?: string; otp_code?: string }) {
+    const code = body.otp_code || body.code || '';
+    return this.mfaService.disable(req.user.sub, code);
+  }
+
   @Post('disable')
-  disable(@Request() req: any, @Body() body: { code?: string; otp_code?: string }) {
+  disablePost(@Request() req: any, @Body() body: { code?: string; otp_code?: string }) {
     const code = body.otp_code || body.code || '';
     return this.mfaService.disable(req.user.sub, code);
   }

@@ -59,20 +59,38 @@ describe('MfaController', () => {
     });
   });
 
-  describe('disable', () => {
+  describe('disableDelete (DELETE /auth/mfa/disable)', () => {
     it('should accept otp_code field', async () => {
       mockService.disable.mockResolvedValue({ mfa_enabled: false });
-      await controller.disable(req, { otp_code: '123456' });
+      await controller.disableDelete(req, { otp_code: '123456' });
       expect(mockService.disable).toHaveBeenCalledWith(1, '123456');
     });
     it('should accept code field', async () => {
       mockService.disable.mockResolvedValue({ mfa_enabled: false });
-      await controller.disable(req, { code: '654321' });
+      await controller.disableDelete(req, { code: '654321' });
       expect(mockService.disable).toHaveBeenCalledWith(1, '654321');
     });
     it('should fallback to empty string', async () => {
       mockService.disable.mockResolvedValue({ mfa_enabled: false });
-      await controller.disable(req, {});
+      await controller.disableDelete(req, {});
+      expect(mockService.disable).toHaveBeenCalledWith(1, '');
+    });
+  });
+
+  describe('disablePost (POST /auth/mfa/disable)', () => {
+    it('should accept otp_code field', async () => {
+      mockService.disable.mockResolvedValue({ mfa_enabled: false });
+      await controller.disablePost(req, { otp_code: '123456' });
+      expect(mockService.disable).toHaveBeenCalledWith(1, '123456');
+    });
+    it('should accept code field', async () => {
+      mockService.disable.mockResolvedValue({ mfa_enabled: false });
+      await controller.disablePost(req, { code: '654321' });
+      expect(mockService.disable).toHaveBeenCalledWith(1, '654321');
+    });
+    it('should fallback to empty string', async () => {
+      mockService.disable.mockResolvedValue({ mfa_enabled: false });
+      await controller.disablePost(req, {});
       expect(mockService.disable).toHaveBeenCalledWith(1, '');
     });
   });
