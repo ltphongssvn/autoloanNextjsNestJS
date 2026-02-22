@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma.service';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
+import * as OTPAuth from 'otpauth';
 
 jest.mock('qrcode', () => ({
   toString: jest.fn().mockResolvedValue('<svg>mock-qr</svg>'),
@@ -23,17 +24,20 @@ describe('MfaService', () => {
     jest.clearAllMocks();
   });
 
-  function generateValidCode(secret: string): string {
-    const step = 30;
-    const counter = Math.floor(Math.floor(Date.now() / 1000) / step);
-    const buffer = Buffer.alloc(8);
-    buffer.writeBigUInt64BE(BigInt(counter));
-    const hmac = crypto.createHmac('sha1', Buffer.from(secret, 'hex'));
-    hmac.update(buffer);
-    const hash = hmac.digest();
-    const offset = hash[hash.length - 1] & 0x0f;
-    const binary = ((hash[offset] & 0x7f) << 24) | ((hash[offset + 1] & 0xff) << 16) | ((hash[offset + 2] & 0xff) << 8) | (hash[offset + 3] & 0xff);
-    return (binary % 1000000).toString().padStart(6, '0');
+  function generateValidCode(base32Secret: string): string {
+    const totp = new OTPAuth.TOTP({
+      issuer: 'AutoLoan',
+      label: 'user',
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(base32Secret),
+    });
+    return totp.generate();
+  }
+
+  function makeBase32Secret(): string {
+    return new OTPAuth.Secret({ size: 20 }).base32;
   }
 
   describe('getStatus', () => {
@@ -52,12 +56,14 @@ describe('MfaService', () => {
   });
 
   describe('setup', () => {
-    it('generates secret, otp_auth_url, and qr_code_svg', async () => {
+    it('generates base32 secret, otp_auth_url, and qr_code_svg', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'a@b.com', otpRequiredForLogin: false });
       mockPrisma.user.update.mockResolvedValue({});
       const result = await service.setup(1);
       expect(result.secret).toBeDefined(); // pragma: allowlist secret
-      expect(result.otp_auth_url).toContain('otpauth://totp/AutoLoan:a@b.com');
+      expect(result.secret).toMatch(/^[A-Z2-7]+=*$/); // base32 format // pragma: allowlist secret
+      expect(result.otp_auth_url).toContain('otpauth://totp/');
+      expect(result.otp_auth_url).toContain('AutoLoan');
       expect(result.qr_code_svg).toBe('<svg>mock-qr</svg>');
       expect(QRCode.toString).toHaveBeenCalledWith(expect.stringContaining('otpauth://'), { type: 'svg' });
       expect(mockPrisma.user.update).toHaveBeenCalled();
@@ -70,7 +76,7 @@ describe('MfaService', () => {
 
   describe('enable', () => {
     it('enables MFA with valid code and returns backup codes', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpSecret: secret }); // pragma: allowlist secret
       mockPrisma.user.update.mockResolvedValue({});
       const code = generateValidCode(secret);
@@ -83,14 +89,15 @@ describe('MfaService', () => {
       await expect(service.enable(1, '123456')).rejects.toThrow(BadRequestException);
     });
     it('throws on invalid code', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpSecret: crypto.randomBytes(20).toString('hex') }); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpSecret: secret }); // pragma: allowlist secret
       await expect(service.enable(1, '000000')).rejects.toThrow(UnauthorizedException);
     });
   });
 
   describe('disable', () => {
     it('disables MFA with valid TOTP code', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpRequiredForLogin: true, otpSecret: secret, otpBackupCodes: '[]' }); // pragma: allowlist secret
       mockPrisma.user.update.mockResolvedValue({});
       const code = generateValidCode(secret);
@@ -98,7 +105,7 @@ describe('MfaService', () => {
       expect(result.mfa_enabled).toBe(false);
     });
     it('disables MFA with valid backup code', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpRequiredForLogin: true, otpSecret: secret, otpBackupCodes: '["abc123"]' }); // pragma: allowlist secret
       mockPrisma.user.update.mockResolvedValue({});
       const result = await service.disable(1, 'abc123');
@@ -109,7 +116,7 @@ describe('MfaService', () => {
       await expect(service.disable(1, '123456')).rejects.toThrow(BadRequestException);
     });
     it('throws on invalid code', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpRequiredForLogin: true, otpSecret: secret, otpBackupCodes: '[]' }); // pragma: allowlist secret
       await expect(service.disable(1, '000000')).rejects.toThrow(UnauthorizedException);
     });
@@ -117,14 +124,14 @@ describe('MfaService', () => {
 
   describe('verify', () => {
     it('verifies valid TOTP code', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpRequiredForLogin: true, otpSecret: secret, otpBackupCodes: '[]' }); // pragma: allowlist secret
       const code = generateValidCode(secret);
       const result = await service.verify(1, code);
       expect(result.valid).toBe(true);
     });
     it('verifies valid backup code and consumes it', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpRequiredForLogin: true, otpSecret: secret, otpBackupCodes: '["code1","code2"]' }); // pragma: allowlist secret
       mockPrisma.user.update.mockResolvedValue({});
       const result = await service.verify(1, 'code1');
@@ -140,12 +147,12 @@ describe('MfaService', () => {
       await expect(service.verify(1, '123456')).rejects.toThrow(BadRequestException);
     });
     it('throws on invalid code', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpRequiredForLogin: true, otpSecret: secret, otpBackupCodes: '[]' }); // pragma: allowlist secret
       await expect(service.verify(1, '000000')).rejects.toThrow(UnauthorizedException);
     });
     it('handles null backup codes', async () => {
-      const secret = crypto.randomBytes(20).toString('hex'); // pragma: allowlist secret
+      const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpRequiredForLogin: true, otpSecret: secret, otpBackupCodes: null }); // pragma: allowlist secret
       await expect(service.verify(1, '000000')).rejects.toThrow(UnauthorizedException);
     });

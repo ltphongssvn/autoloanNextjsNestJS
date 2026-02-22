@@ -3,10 +3,22 @@ import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/
 import { PrismaService } from '../prisma.service';
 import * as crypto from 'crypto';
 import * as QRCode from 'qrcode';
+import * as OTPAuth from 'otpauth';
 
 @Injectable()
 export class MfaService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private createTotp(secret: string, email?: string): OTPAuth.TOTP {
+    return new OTPAuth.TOTP({
+      issuer: 'AutoLoan',
+      label: email || 'user',
+      algorithm: 'SHA1',
+      digits: 6,
+      period: 30,
+      secret: OTPAuth.Secret.fromBase32(secret),
+    });
+  }
 
   async getStatus(userId: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
@@ -18,14 +30,16 @@ export class MfaService {
     if (user?.otpRequiredForLogin) {
       throw new BadRequestException('MFA is already enabled');
     }
-    const secret = crypto.randomBytes(20).toString('hex');
+    const secret = new OTPAuth.Secret({ size: 20 });
+    const base32Secret = secret.base32;
     await this.prisma.user.update({
       where: { id: userId },
-      data: { otpSecret: secret },
+      data: { otpSecret: base32Secret },
     });
-    const otpAuthUrl = `otpauth://totp/AutoLoan:${user?.email}?secret=${secret}&issuer=AutoLoan`;
+    const totp = this.createTotp(base32Secret, user?.email);
+    const otpAuthUrl = totp.toString();
     const qrCodeSvg = await QRCode.toString(otpAuthUrl, { type: 'svg' });
-    return { secret, otp_auth_url: otpAuthUrl, qr_code_svg: qrCodeSvg };
+    return { secret: base32Secret, otp_auth_url: otpAuthUrl, qr_code_svg: qrCodeSvg };
   }
 
   async enable(userId: number, code: string) {
@@ -80,29 +94,9 @@ export class MfaService {
   }
 
   private verifyTotp(secret: string, code: string): boolean {
-    const step = 30;
-    const now = Math.floor(Date.now() / 1000);
-    for (let i = -1; i <= 1; i++) {
-      const counter = Math.floor((now + i * step) / step);
-      const expected = this.generateTotp(secret, counter);
-      if (expected === code) return true;
-    }
-    return false;
-  }
-
-  private generateTotp(secret: string, counter: number): string {
-    const buffer = Buffer.alloc(8);
-    buffer.writeBigUInt64BE(BigInt(counter));
-    const hmac = crypto.createHmac('sha1', Buffer.from(secret, 'hex'));
-    hmac.update(buffer);
-    const hash = hmac.digest();
-    const offset = hash[hash.length - 1] & 0x0f;
-    const binary =
-      ((hash[offset] & 0x7f) << 24) |
-      ((hash[offset + 1] & 0xff) << 16) |
-      ((hash[offset + 2] & 0xff) << 8) |
-      (hash[offset + 3] & 0xff);
-    return (binary % 1000000).toString().padStart(6, '0');
+    const totp = this.createTotp(secret);
+    const delta = totp.validate({ token: code, window: 1 });
+    return delta !== null;
   }
 
   private verifyBackupCode(user: { otpBackupCodes: string | null }, code: string): boolean {
