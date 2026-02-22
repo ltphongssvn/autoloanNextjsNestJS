@@ -50,7 +50,7 @@ export class MfaService {
     if (!this.verifyTotp(user.otpSecret, code)) {
       throw new UnauthorizedException('Invalid verification code');
     }
-    const backupCodes = Array.from({ length: 8 }, () => crypto.randomBytes(4).toString('hex'));
+    const backupCodes = Array.from({ length: 10 }, () => crypto.randomBytes(4).toString('hex'));
     await this.prisma.user.update({
       where: { id: userId },
       data: { otpRequiredForLogin: true, otpBackupCodes: JSON.stringify(backupCodes) },

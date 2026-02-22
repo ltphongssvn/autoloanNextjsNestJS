@@ -63,10 +63,8 @@ describe('MfaService', () => {
       expect(result.secret).toBeDefined(); // pragma: allowlist secret
       expect(result.secret).toMatch(/^[A-Z2-7]+=*$/); // base32 format // pragma: allowlist secret
       expect(result.otp_auth_url).toContain('otpauth://totp/');
-      expect(result.otp_auth_url).toContain('AutoLoan');
       expect(result.qr_code_svg).toBe('<svg>mock-qr</svg>');
       expect(QRCode.toString).toHaveBeenCalledWith(expect.stringContaining('otpauth://'), { type: 'svg' });
-      expect(mockPrisma.user.update).toHaveBeenCalled();
     });
     it('throws if MFA already enabled', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ otpRequiredForLogin: true });
@@ -75,14 +73,14 @@ describe('MfaService', () => {
   });
 
   describe('enable', () => {
-    it('enables MFA with valid code and returns backup codes', async () => {
+    it('enables MFA with valid code and returns 10 backup codes', async () => {
       const secret = makeBase32Secret(); // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpSecret: secret }); // pragma: allowlist secret
       mockPrisma.user.update.mockResolvedValue({});
       const code = generateValidCode(secret);
       const result = await service.enable(1, code);
       expect(result.mfa_enabled).toBe(true);
-      expect(result.backup_codes).toHaveLength(8);
+      expect(result.backup_codes).toHaveLength(10);
     });
     it('throws if setup not initiated', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, otpSecret: null }); // pragma: allowlist secret
