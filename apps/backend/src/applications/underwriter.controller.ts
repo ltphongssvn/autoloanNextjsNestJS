@@ -1,13 +1,14 @@
 // apps/backend/src/applications/underwriter.controller.ts
-import { Controller, Get, Post, Param, Body, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Param, Body, Query, Req, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { ApplicationsService } from './applications.service';
+import { ApplicationsService, ApplicationQuery } from './applications.service';
 import { ApplicationWorkflowService } from './application-workflow.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { JwtPayload } from '../auth/jwt.strategy';
 import { PrismaService } from '../prisma.service';
+import { serializeApplication } from './application.serializer';
 
 interface AuthenticatedRequest {
   user: JwtPayload;
@@ -27,18 +28,56 @@ export class UnderwriterController {
 
   @Get()
   @ApiOperation({ summary: 'List applications for underwriter review' })
-  findAll() {
-    return this.prisma.application.findMany({
-      where: { status: { in: ['submitted', 'under_review', 'pending_documents'] } },
-      orderBy: { createdAt: 'desc' },
-      include: { user: true },
-    });
+  async findAll(
+    @Req() req: AuthenticatedRequest,
+    @Query('$filter') $filter?: string,
+    @Query('$orderby') $orderby?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('per_page') per_page?: string,
+  ) {
+    const query: ApplicationQuery = {
+      $filter,
+      $orderby,
+      status: status || undefined,
+      page: page ? parseInt(page, 10) : undefined,
+      per_page: per_page ? parseInt(per_page, 10) : undefined,
+    };
+    // If no status filter provided, default to underwriter-relevant statuses
+    if (!status && !$filter?.includes('status')) {
+      query.status = undefined;
+      query.$filter = $filter
+        ? `${$filter} and (status eq 'submitted' or status eq 'under_review' or status eq 'pending_documents' or status eq 'approved' or status eq 'rejected')`
+        : undefined;
+      // Use raw query for default status set when no filter specified
+      if (!$filter) {
+        const queryWithStatuses: ApplicationQuery = { ...query };
+        delete queryWithStatuses.$filter;
+        const result = await this.applicationsService.findAll(queryWithStatuses);
+        const filtered = {
+          ...result,
+          data: result.data.filter((app: any) =>
+            ['submitted', 'under_review', 'pending_documents', 'approved', 'rejected'].includes(app.status),
+          ),
+        };
+        return {
+          data: filtered.data.map((app: any) => serializeApplication(app, { currentUserId: req.user.sub })),
+          pagination: filtered.pagination,
+        };
+      }
+    }
+    const result = await this.applicationsService.findAll(query);
+    return {
+      data: result.data.map((app: any) => serializeApplication(app, { currentUserId: req.user.sub })),
+      pagination: result.pagination,
+    };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get application detail for underwriting' })
-  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
-    return this.applicationsService.findOne(id, req.user.sub, req.user.role);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    const app = await this.applicationsService.findOne(id, req.user.sub, req.user.role);
+    return serializeApplication(app, { currentUserId: req.user.sub });
   }
 
   @Post(':id/approve')
