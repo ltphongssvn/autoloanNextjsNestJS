@@ -54,7 +54,7 @@ export class AuthService {
     return this.jwtService.sign({ sub: user.id, email: user.email, role: user.role, scopes, jti });
   }
 
-  async login(dto: LoginDto) {
+  async login(dto: LoginDto, ip?: string) {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -76,9 +76,16 @@ export class AuthService {
       }
       throw new UnauthorizedException('Invalid credentials');
     }
-    if (user.failedAttempts > 0) {
-      await this.prisma.user.update({ where: { id: user.id }, data: { failedAttempts: 0 } });
-    }
+    // Devise :trackable — update sign-in stats
+    const trackData: any = {
+      signInCount: user.signInCount + 1,
+      lastSignInAt: user.currentSignInAt,
+      lastSignInIp: user.currentSignInIp,
+      currentSignInAt: new Date(),
+      currentSignInIp: ip || null,
+      failedAttempts: 0,
+    };
+    await this.prisma.user.update({ where: { id: user.id }, data: trackData });
     return { token: this.generateToken(user), user: this.formatUser(user) };
   }
 

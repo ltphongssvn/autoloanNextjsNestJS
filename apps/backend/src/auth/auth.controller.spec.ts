@@ -35,7 +35,7 @@ describe('AuthController', () => {
   };
 
   const authReq = () => ({
-    user: { sub: 1, email: 'test@test.com', role: 'customer', jti: 'test-jti' } as JwtPayload,
+    user: { sub: 1, email: 'test@test.com', role: 'customer', scopes: [], jti: 'test-jti' } as JwtPayload,
   });
 
   beforeEach(() => {
@@ -57,11 +57,12 @@ describe('AuthController', () => {
   });
 
   describe('login', () => {
-    it('should set Authorization header and return token', async () => { // pragma: allowlist secret
+    it('should set Authorization header, pass IP, and return token', async () => { // pragma: allowlist secret
       const data = { token: 'jwt', user: { id: 1 } }; // pragma: allowlist secret
       mockService.login.mockResolvedValue(data);
       const res = mockRes();
-      await controller.login({ email: 'a@b.com', password: 'p' }, res as Response); // pragma: allowlist secret
+      await controller.login({ email: 'a@b.com', password: 'p' }, '192.168.1.1', res as Response); // pragma: allowlist secret
+      expect(mockService.login).toHaveBeenCalledWith({ email: 'a@b.com', password: 'p' }, '192.168.1.1'); // pragma: allowlist secret
       expect(res.setHeader).toHaveBeenCalledWith('Authorization', 'Bearer jwt');
       expect(res.json).toHaveBeenCalledWith(data);
     });

@@ -1,5 +1,5 @@
 // apps/backend/src/auth/auth.controller.ts
-import { Controller, Get, Post, Put, Delete, Body, Query, Req, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Query, Req, Res, Ip, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Response } from 'express';
 import { AuthService } from './auth.service';
@@ -33,8 +33,8 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'JWT token returned' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 403, description: 'Account locked' })
-  async login(@Body() body: { email: string; password: string }, @Res() res: Response) {
-    const result = await this.authService.login(body);
+  async login(@Body() body: { email: string; password: string }, @Ip() ip: string, @Res() res: Response) {
+    const result = await this.authService.login(body, ip);
     res.setHeader('Authorization', `Bearer ${result.token}`);
     return res.json(result);
   }

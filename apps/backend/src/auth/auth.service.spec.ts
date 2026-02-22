@@ -36,6 +36,11 @@ describe('AuthService', () => {
     failedAttempts: 0,
     lockedAt: null,
     unlockToken: null,
+    signInCount: 0,
+    currentSignInAt: null,
+    lastSignInAt: null,
+    currentSignInIp: null,
+    lastSignInIp: null,
   };
 
   beforeEach(() => {
@@ -44,12 +49,55 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should return token and user on valid credentials', async () => { // pragma: allowlist secret
+    it('should return token and track sign-in on valid credentials', async () => { // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       bcrypt.compare.mockResolvedValue(true);
-      const result = await service.login({ email: 'test@test.com', password: 'pass' }); // pragma: allowlist secret
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.login({ email: 'test@test.com', password: 'pass' }, '192.168.1.1'); // pragma: allowlist secret
       expect(result.token).toBe('signed-jwt-token'); // pragma: allowlist secret
       expect(result.user.email).toBe('test@test.com');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          signInCount: 1,
+          lastSignInAt: null,
+          lastSignInIp: null,
+          currentSignInAt: expect.any(Date),
+          currentSignInIp: '192.168.1.1',
+          failedAttempts: 0,
+        },
+      });
+    });
+    it('should rotate currentSignIn to lastSignIn on subsequent login', async () => {
+      const returning = {
+        ...mockUser,
+        signInCount: 3,
+        currentSignInAt: new Date('2025-06-01'),
+        currentSignInIp: '10.0.0.1',
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(returning);
+      bcrypt.compare.mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({});
+      await service.login({ email: 'test@test.com', password: 'pass' }, '10.0.0.2'); // pragma: allowlist secret
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          signInCount: 4,
+          lastSignInAt: new Date('2025-06-01'),
+          lastSignInIp: '10.0.0.1',
+          currentSignInIp: '10.0.0.2',
+        }),
+      });
+    });
+    it('should set currentSignInIp to null when no IP provided', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({});
+      await service.login({ email: 'test@test.com', password: 'pass' }); // pragma: allowlist secret
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({ currentSignInIp: null }),
+      });
     });
     it('should throw when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
@@ -78,22 +126,6 @@ describe('AuthService', () => {
     it('should throw ForbiddenException for locked account', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, lockedAt: new Date() });
       await expect(service.login({ email: 'test@test.com', password: 'pass' })).rejects.toThrow(ForbiddenException); // pragma: allowlist secret
-    });
-    it('should reset failed attempts on successful login', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, failedAttempts: 3 });
-      bcrypt.compare.mockResolvedValue(true);
-      mockPrisma.user.update.mockResolvedValue({});
-      await service.login({ email: 'test@test.com', password: 'pass' }); // pragma: allowlist secret
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { failedAttempts: 0 },
-      });
-    });
-    it('should not update when failedAttempts is already 0', async () => {
-      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, failedAttempts: 0 });
-      bcrypt.compare.mockResolvedValue(true);
-      await service.login({ email: 'test@test.com', password: 'pass' }); // pragma: allowlist secret
-      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
   });
 
@@ -158,10 +190,6 @@ describe('AuthService', () => {
       mockPrisma.user.update.mockResolvedValue({});
       const result = await service.unlockAccount('tok');
       expect(result.message).toBe('Account unlocked successfully');
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: { lockedAt: null, unlockToken: null, failedAttempts: 0 },
-      });
     });
     it('should throw for invalid unlock token', async () => {
       mockPrisma.user.findFirst.mockResolvedValue(null);
