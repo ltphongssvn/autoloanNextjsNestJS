@@ -103,7 +103,8 @@ export class ApplicationsService {
   async create(userId: number, dto: CreateApplicationDto) {
     const appDto = (dto as any).application || dto;
     const count = await this.prisma.application.count({ where: { userId } });
-    const appNumber = `AL-${String(count + 1).padStart(6, '0')}`;
+    const year = new Date().getFullYear();
+    const appNumber = `AL-${year}-${String(count + 1).padStart(5, '0')}`;
 
     const application = await this.prisma.$transaction(async (tx) => {
       const loanAmount = appDto.loan_details?.amount ?? appDto.loanAmount ?? undefined;
