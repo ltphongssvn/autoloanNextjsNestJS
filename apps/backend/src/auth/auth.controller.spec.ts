@@ -77,18 +77,34 @@ describe('AuthController', () => {
   });
 
   describe('requestPasswordReset', () => { // pragma: allowlist secret
-    it('should request reset', async () => {
+    it('should request reset with flat body', async () => {
       mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
       const result = await controller.requestPasswordReset({ email: 'a@b.com' }); // pragma: allowlist secret
+      expect(mockService.requestPasswordReset).toHaveBeenCalledWith('a@b.com'); // pragma: allowlist secret
+      expect(result.message).toBe('sent');
+    });
+
+    it('should request reset with Devise-wrapped body', async () => {
+      mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
+      const result = await controller.requestPasswordReset({ user: { email: 'a@b.com' } }); // pragma: allowlist secret
       expect(mockService.requestPasswordReset).toHaveBeenCalledWith('a@b.com'); // pragma: allowlist secret
       expect(result.message).toBe('sent');
     });
   });
 
   describe('resetPassword', () => { // pragma: allowlist secret
-    it('should reset password', async () => { // pragma: allowlist secret
+    it('should reset password with flat body', async () => { // pragma: allowlist secret
       mockService.resetPassword.mockResolvedValue({ message: 'done' }); // pragma: allowlist secret
       const result = await controller.resetPassword({ token: 'tok', password: 'new' }); // pragma: allowlist secret
+      expect(mockService.resetPassword).toHaveBeenCalledWith('tok', 'new'); // pragma: allowlist secret
+      expect(result.message).toBe('done');
+    });
+
+    it('should reset password with Devise-wrapped body', async () => { // pragma: allowlist secret
+      mockService.resetPassword.mockResolvedValue({ message: 'done' }); // pragma: allowlist secret
+      const result = await controller.resetPassword({ // pragma: allowlist secret
+        user: { reset_password_token: 'tok', password: 'new', password_confirmation: 'new' }, // pragma: allowlist secret
+      });
       expect(mockService.resetPassword).toHaveBeenCalledWith('tok', 'new'); // pragma: allowlist secret
       expect(result.message).toBe('done');
     });
