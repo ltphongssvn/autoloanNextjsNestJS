@@ -11,6 +11,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { JwtPayload } from '../auth/jwt.strategy';
 import { CreateApplicationDto } from './create-application.dto';
+import { serializeApplication } from './application.serializer';
 import { Response } from 'express';
 
 interface AuthenticatedRequest {
@@ -63,8 +64,9 @@ export class ApplicationsController {
   @Get(':id')
   @ApiOperation({ summary: 'Get application detail with relations' })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
-    return this.applicationsService.findOne(id, req.user.sub, req.user.role);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    const application = await this.applicationsService.findOne(id, req.user.sub, req.user.role);
+    return serializeApplication(application, { currentUserId: req.user.sub });
   }
 
   @Patch(':id')

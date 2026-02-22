@@ -28,6 +28,19 @@ describe('ApplicationsController', () => {
     user: { sub: 2, email: 's@test.com', role: 'loan_officer', scopes: [], jti: 'j' } as JwtPayload,
   });
 
+  const fullApp = {
+    id: 1, applicationNumber: 'AL-2026-00001', status: 'draft', currentStep: 1,
+    loanTerm: 60, interestRate: 5.5, monthlyPayment: 450, loanAmount: 25000, downPayment: 5000,
+    dob: new Date('1990-01-01'), submittedAt: null, decidedAt: null, signatureData: null,
+    signedAt: null, agreementAccepted: null, ssnEncrypted: '123-45-6789', userId: 1,
+    createdAt: new Date(), updatedAt: new Date(),
+    user: { firstName: 'John', lastName: 'Doe', email: 'j@test.com', phone: '555-1234' },
+    addresses: [{ addressType: 'residential', streetAddress: '123 Main', city: 'X', state: 'IL', zipCode: '62701', yearsAtAddress: 3, monthsAtAddress: 0 }],
+    vehicles: [{ make: 'Toyota', model: 'Camry', year: 2023, vin: 'V1', trim: 'SE', condition: 'new', estimatedValue: 28000, mileage: 15 }],
+    financialInfos: [{ incomeType: 'primary', employerName: 'Acme', jobTitle: 'Eng', employmentStatus: 'full_time', yearsEmployed: 5, monthsEmployed: 0, annualIncome: 120000, monthlyExpenses: 3000, creditScore: 750, otherIncome: null }],
+    documents: [], statusHistories: [],
+  };
+
   beforeEach(() => {
     controller = new ApplicationsController(
       mockService as unknown as ApplicationsService,
@@ -76,20 +89,33 @@ describe('ApplicationsController', () => {
     });
   });
 
+  describe('findOne', () => {
+    it('should return serialized application with virtual attributes', async () => {
+      mockService.findOne.mockResolvedValue(fullApp);
+      const result = await controller.findOne(1, customerReq());
+      expect(mockService.findOne).toHaveBeenCalledWith(1, 1, 'customer');
+      expect(result.personal_info).toBeDefined();
+      expect(result.personal_info.first_name).toBe('John');
+      expect(result.personal_info.ssn).toBe('123-45-6789');
+      expect(result.car_details.make).toBe('Toyota');
+      expect(result.loan_details.amount).toBe('25000');
+      expect(result.employment_info.employer).toBe('Acme');
+      expect(result.links).toBeDefined();
+      expect(result.links.submit).toBeDefined();
+    });
+
+    it('should hide SSN from non-owner', async () => {
+      mockService.findOne.mockResolvedValue({ ...fullApp, userId: 99 });
+      const result = await controller.findOne(1, customerReq());
+      expect(result.personal_info.ssn).toBeNull();
+    });
+  });
+
   describe('create', () => {
     it('should create application', async () => {
       mockService.create.mockResolvedValue({ id: 1 });
       const result = await controller.create(customerReq(), { loanAmount: 25000 });
       expect(mockService.create).toHaveBeenCalledWith(1, { loanAmount: 25000 });
-      expect(result).toEqual({ id: 1 });
-    });
-  });
-
-  describe('findOne', () => {
-    it('should get application', async () => {
-      mockService.findOne.mockResolvedValue({ id: 1 });
-      const result = await controller.findOne(1, customerReq());
-      expect(mockService.findOne).toHaveBeenCalledWith(1, 1, 'customer');
       expect(result).toEqual({ id: 1 });
     });
   });
