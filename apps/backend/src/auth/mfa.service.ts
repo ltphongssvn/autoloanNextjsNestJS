@@ -2,6 +2,7 @@
 import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import * as crypto from 'crypto';
+import * as QRCode from 'qrcode';
 
 @Injectable()
 export class MfaService {
@@ -23,7 +24,8 @@ export class MfaService {
       data: { otpSecret: secret },
     });
     const otpAuthUrl = `otpauth://totp/AutoLoan:${user?.email}?secret=${secret}&issuer=AutoLoan`;
-    return { secret, otp_auth_url: otpAuthUrl };
+    const qrCodeSvg = await QRCode.toString(otpAuthUrl, { type: 'svg' });
+    return { secret, otp_auth_url: otpAuthUrl, qr_code_svg: qrCodeSvg };
   }
 
   async enable(userId: number, code: string) {
@@ -66,7 +68,6 @@ export class MfaService {
       return { valid: true };
     }
     if (this.verifyBackupCode(user, code)) {
-      // Consume the backup code
       const codes: string[] = JSON.parse(user.otpBackupCodes || '[]');
       const remaining = codes.filter((c) => c !== code);
       await this.prisma.user.update({
@@ -79,7 +80,6 @@ export class MfaService {
   }
 
   private verifyTotp(secret: string, code: string): boolean {
-    // Time-based OTP verification (30-second window, ±1 step tolerance)
     const step = 30;
     const now = Math.floor(Date.now() / 1000);
     for (let i = -1; i <= 1; i++) {

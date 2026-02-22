@@ -3,6 +3,11 @@ import { MfaService } from './mfa.service';
 import { PrismaService } from '../prisma.service';
 import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import * as crypto from 'crypto';
+import * as QRCode from 'qrcode';
+
+jest.mock('qrcode', () => ({
+  toString: jest.fn().mockResolvedValue('<svg>mock-qr</svg>'),
+}));
 
 describe('MfaService', () => {
   let service: MfaService;
@@ -47,12 +52,14 @@ describe('MfaService', () => {
   });
 
   describe('setup', () => {
-    it('generates secret and otp_auth_url', async () => {
+    it('generates secret, otp_auth_url, and qr_code_svg', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'a@b.com', otpRequiredForLogin: false });
       mockPrisma.user.update.mockResolvedValue({});
       const result = await service.setup(1);
       expect(result.secret).toBeDefined(); // pragma: allowlist secret
       expect(result.otp_auth_url).toContain('otpauth://totp/AutoLoan:a@b.com');
+      expect(result.qr_code_svg).toBe('<svg>mock-qr</svg>');
+      expect(QRCode.toString).toHaveBeenCalledWith(expect.stringContaining('otpauth://'), { type: 'svg' });
       expect(mockPrisma.user.update).toHaveBeenCalled();
     });
     it('throws if MFA already enabled', async () => {
