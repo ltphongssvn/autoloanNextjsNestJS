@@ -1,6 +1,7 @@
 // apps/backend/src/auth/auth.controller.ts
-import { Controller, Get, Post, Put, Delete, Body, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Response } from 'express';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from './jwt-auth.guard';
@@ -32,16 +33,20 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'JWT token returned' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 403, description: 'Account locked' })
-  login(@Body() body: { email: string; password: string }) {
-    return this.authService.login(body);
+  async login(@Body() body: { email: string; password: string }, @Res() res: Response) {
+    const result = await this.authService.login(body);
+    res.setHeader('Authorization', `Bearer ${result.token}`);
+    return res.json(result);
   }
 
   @Post('signup')
   @ApiOperation({ summary: 'Register a new customer account' })
   @ApiResponse({ status: 201, description: 'User created and JWT returned' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
-  signup(@Body() body: { email: string; password: string; first_name: string; last_name: string }) {
-    return this.authService.signup(body);
+  async signup(@Body() body: { email: string; password: string; first_name: string; last_name: string }, @Res() res: Response) {
+    const result = await this.authService.signup(body);
+    res.setHeader('Authorization', `Bearer ${result.token}`);
+    return res.status(201).json(result);
   }
 
   @Delete('logout')
@@ -57,8 +62,10 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Refresh JWT token' })
   @ApiResponse({ status: 200, description: 'New JWT token returned' })
-  refresh(@Req() req: AuthenticatedRequest) {
-    return this.authService.refresh(req.user.sub, req.user.jti);
+  async refresh(@Req() req: AuthenticatedRequest, @Res() res: Response) {
+    const result = await this.authService.refresh(req.user.sub, req.user.jti);
+    res.setHeader('Authorization', `Bearer ${result.token}`);
+    return res.json(result);
   }
 
   @Get('confirmation')
