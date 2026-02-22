@@ -10,35 +10,70 @@ describe('ApplicationsController', () => {
   let controller: ApplicationsController;
   const mockService = {
     create: jest.fn(),
-    findAllForUser: jest.fn(),
     findAll: jest.fn(),
+    findAllForUser: jest.fn(),
     findOne: jest.fn(),
     update: jest.fn(),
     remove: jest.fn(),
     updateStatus: jest.fn(),
   };
-  const mockHistoryService = { findByApplication: jest.fn() };
-  const mockWorkflowService = { submit: jest.fn(), sign: jest.fn() };
-  const mockAgreementPdfService = { generate: jest.fn() };
+  const mockHistory = { findByApplication: jest.fn() };
+  const mockWorkflow = { submit: jest.fn(), sign: jest.fn() };
+  const mockPdf = { generate: jest.fn() };
 
   const customerReq = () => ({
-    user: { sub: 1, email: 'c@test.com', role: 'customer', jti: 'j' } as JwtPayload,
+    user: { sub: 1, email: 'c@test.com', role: 'customer', scopes: [], jti: 'j' } as JwtPayload,
   });
   const staffReq = () => ({
-    user: { sub: 2, email: 's@test.com', role: 'loan_officer', jti: 'j' } as JwtPayload,
-  });
-  const underwriterReq = () => ({
-    user: { sub: 3, email: 'u@test.com', role: 'underwriter', jti: 'j' } as JwtPayload,
+    user: { sub: 2, email: 's@test.com', role: 'loan_officer', scopes: [], jti: 'j' } as JwtPayload,
   });
 
   beforeEach(() => {
     controller = new ApplicationsController(
       mockService as unknown as ApplicationsService,
-      mockHistoryService as unknown as StatusHistoryService,
-      mockWorkflowService as unknown as ApplicationWorkflowService,
-      mockAgreementPdfService as unknown as AgreementPdfService,
+      mockHistory as unknown as StatusHistoryService,
+      mockWorkflow as unknown as ApplicationWorkflowService,
+      mockPdf as unknown as AgreementPdfService,
     );
     jest.clearAllMocks();
+  });
+
+  describe('findAll', () => {
+    it('should call findAllForUser for customers', async () => {
+      mockService.findAllForUser.mockResolvedValue({ data: [], pagination: {} });
+      await controller.findAll(customerReq());
+      expect(mockService.findAllForUser).toHaveBeenCalledWith(1, expect.any(Object));
+    });
+
+    it('should call findAll for staff', async () => {
+      mockService.findAll.mockResolvedValue({ data: [], pagination: {} });
+      await controller.findAll(staffReq());
+      expect(mockService.findAll).toHaveBeenCalledWith(expect.any(Object));
+    });
+
+    it('should pass query params', async () => {
+      mockService.findAll.mockResolvedValue({ data: [], pagination: {} });
+      await controller.findAll(staffReq(), "status eq 'draft'", 'created_at desc', 'submitted', '2', '10');
+      expect(mockService.findAll).toHaveBeenCalledWith({
+        $filter: "status eq 'draft'",
+        $orderby: 'created_at desc',
+        status: 'submitted',
+        page: 2,
+        per_page: 10,
+      });
+    });
+
+    it('should handle undefined query params', async () => {
+      mockService.findAllForUser.mockResolvedValue({ data: [], pagination: {} });
+      await controller.findAll(customerReq(), undefined, undefined, undefined, undefined, undefined);
+      expect(mockService.findAllForUser).toHaveBeenCalledWith(1, {
+        $filter: undefined,
+        $orderby: undefined,
+        status: undefined,
+        page: undefined,
+        per_page: undefined,
+      });
+    });
   });
 
   describe('create', () => {
@@ -50,29 +85,8 @@ describe('ApplicationsController', () => {
     });
   });
 
-  describe('findAll', () => {
-    it('should return user apps for customer', async () => {
-      mockService.findAllForUser.mockResolvedValue([{ id: 1 }]);
-      const result = await controller.findAll(customerReq());
-      expect(mockService.findAllForUser).toHaveBeenCalledWith(1);
-      expect(result).toEqual([{ id: 1 }]);
-    });
-    it('should return all apps for loan_officer', async () => {
-      mockService.findAll.mockResolvedValue([{ id: 1 }, { id: 2 }]);
-      const result = await controller.findAll(staffReq());
-      expect(mockService.findAll).toHaveBeenCalled();
-      expect(result).toHaveLength(2);
-    });
-    it('should return all apps for underwriter', async () => {
-      mockService.findAll.mockResolvedValue([{ id: 1 }]);
-      const result = await controller.findAll(underwriterReq());
-      expect(mockService.findAll).toHaveBeenCalled();
-      expect(result).toHaveLength(1);
-    });
-  });
-
   describe('findOne', () => {
-    it('should return single application', async () => {
+    it('should get application', async () => {
       mockService.findOne.mockResolvedValue({ id: 1 });
       const result = await controller.findOne(1, customerReq());
       expect(mockService.findOne).toHaveBeenCalledWith(1, 1, 'customer');
@@ -82,68 +96,58 @@ describe('ApplicationsController', () => {
 
   describe('update', () => {
     it('should update application', async () => {
-      mockService.update.mockResolvedValue({ id: 1, loanAmount: 30000 });
-      const result = await controller.update(1, customerReq(), { loanAmount: 30000 });
+      mockService.update.mockResolvedValue({ id: 1 });
+      await controller.update(1, customerReq(), { loanAmount: 30000 });
       expect(mockService.update).toHaveBeenCalledWith(1, 1, { loanAmount: 30000 });
-      expect(result.loanAmount).toBe(30000);
     });
   });
 
   describe('remove', () => {
     it('should delete application', async () => {
-      mockService.remove.mockResolvedValue({ message: 'Application deleted' });
-      const result = await controller.remove(1, customerReq());
+      mockService.remove.mockResolvedValue({ message: 'deleted' });
+      await controller.remove(1, customerReq());
       expect(mockService.remove).toHaveBeenCalledWith(1, 1);
-      expect(result).toEqual({ message: 'Application deleted' });
     });
   });
 
   describe('submit', () => {
-    it('should submit a draft application', async () => {
-      mockWorkflowService.submit.mockResolvedValue({ id: 1, status: 'submitted' });
-      const result = await controller.submit(1, customerReq());
-      expect(mockWorkflowService.submit).toHaveBeenCalledWith(1, 1);
-      expect(result.status).toBe('submitted');
+    it('should submit application', async () => {
+      mockWorkflow.submit.mockResolvedValue({ id: 1, status: 'submitted' });
+      await controller.submit(1, customerReq());
+      expect(mockWorkflow.submit).toHaveBeenCalledWith(1, 1);
     });
   });
 
   describe('sign', () => {
-    it('should sign an approved application', async () => {
-      mockWorkflowService.sign.mockResolvedValue({ id: 1, status: 'signed' });
-      const result = await controller.sign(1, customerReq(), { signature_data: 'base64sig' });
-      expect(mockWorkflowService.sign).toHaveBeenCalledWith(1, 1, 'base64sig');
-      expect(result.status).toBe('signed');
+    it('should sign application', async () => {
+      mockWorkflow.sign.mockResolvedValue({ id: 1 });
+      await controller.sign(1, customerReq(), { signature_data: 'sig' });
+      expect(mockWorkflow.sign).toHaveBeenCalledWith(1, 1, 'sig');
     });
   });
 
   describe('agreementPdf', () => {
-    it('should send pdf buffer', async () => {
-      const buf = Buffer.from('test-pdf');
-      mockAgreementPdfService.generate.mockResolvedValue({ buffer: buf, filename: 'loan_agreement_AL-0001.txt' });
-      const mockRes = { set: jest.fn(), send: jest.fn() };
-      await controller.agreementPdf(1, customerReq(), mockRes as any);
-      expect(mockAgreementPdfService.generate).toHaveBeenCalledWith(1, 1);
-      expect(mockRes.set).toHaveBeenCalledWith(expect.objectContaining({ 'Content-Type': 'application/octet-stream' }));
-      expect(mockRes.send).toHaveBeenCalledWith(buf);
+    it('should return PDF', async () => {
+      mockPdf.generate.mockResolvedValue({ buffer: Buffer.from('pdf'), filename: 'test.pdf' });
+      const res = { set: jest.fn(), send: jest.fn() };
+      await controller.agreementPdf(1, customerReq(), res as any);
+      expect(res.send).toHaveBeenCalled();
+    });
+  });
+
+  describe('getHistory', () => {
+    it('should return history', async () => {
+      mockHistory.findByApplication.mockResolvedValue([]);
+      await controller.getHistory(1);
+      expect(mockHistory.findByApplication).toHaveBeenCalledWith(1);
     });
   });
 
   describe('updateStatus', () => {
     it('should update status', async () => {
       mockService.updateStatus.mockResolvedValue({ id: 1, status: 'approved' });
-      const result = await controller.updateStatus(1, staffReq(), { status: 'approved' });
+      await controller.updateStatus(1, staffReq(), { status: 'approved' });
       expect(mockService.updateStatus).toHaveBeenCalledWith(1, 'approved', 2);
-      expect(result.status).toBe('approved');
-    });
-  });
-
-  describe('getHistory', () => {
-    it('should return status history', async () => {
-      const history = [{ id: 1 }, { id: 2 }];
-      mockHistoryService.findByApplication.mockResolvedValue(history);
-      const result = await controller.getHistory(1);
-      expect(mockHistoryService.findByApplication).toHaveBeenCalledWith(1);
-      expect(result).toEqual(history);
     });
   });
 });

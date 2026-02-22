@@ -1,7 +1,7 @@
 // apps/backend/src/applications/applications.controller.ts
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { ApplicationsService } from './applications.service';
+import { ApplicationsService, ApplicationQuery } from './applications.service';
 import { ApplicationStatus } from '@prisma/client';
 import { StatusHistoryService } from './status-history.service';
 import { ApplicationWorkflowService } from './application-workflow.service';
@@ -37,13 +37,27 @@ export class ApplicationsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List applications (own for customers, all for staff)' })
-  findAll(@Req() req: AuthenticatedRequest) {
+  @ApiOperation({ summary: 'List applications with OData filtering, sorting, and pagination' })
+  findAll(
+    @Req() req: AuthenticatedRequest,
+    @Query('$filter') $filter?: string,
+    @Query('$orderby') $orderby?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('per_page') per_page?: string,
+  ) {
+    const query: ApplicationQuery = {
+      $filter,
+      $orderby,
+      status,
+      page: page ? parseInt(page, 10) : undefined,
+      per_page: per_page ? parseInt(per_page, 10) : undefined,
+    };
     const { sub, role } = req.user;
     if (role === 'loan_officer' || role === 'underwriter') {
-      return this.applicationsService.findAll();
+      return this.applicationsService.findAll(query);
     }
-    return this.applicationsService.findAllForUser(sub);
+    return this.applicationsService.findAllForUser(sub, query);
   }
 
   @Get(':id')
