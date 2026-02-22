@@ -2,7 +2,7 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { ApplicationsService, ApplicationQuery } from './applications.service';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus } from './application-status.type';
 import { StatusHistoryService } from './status-history.service';
 import { ApplicationWorkflowService } from './application-workflow.service';
 import { AgreementPdfService } from './agreement-pdf.service';
