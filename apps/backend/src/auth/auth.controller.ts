@@ -1,5 +1,5 @@
 // apps/backend/src/auth/auth.controller.ts
-import { Controller, Get, Post, Put, Delete, Body, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Query, Req, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
@@ -58,6 +58,21 @@ export class AuthController {
   @ApiResponse({ status: 200, description: 'New JWT token returned' })
   refresh(@Req() req: AuthenticatedRequest) {
     return this.authService.refresh(req.user.sub, req.user.jti);
+  }
+
+  @Get('confirmation')
+  @ApiOperation({ summary: 'Confirm email with token (Devise-compatible)' })
+  @ApiResponse({ status: 200, description: 'Email confirmed' })
+  confirmEmail(@Query('confirmation_token') token: string) {
+    return this.authService.confirmEmail(token);
+  }
+
+  @Post('confirmation')
+  @ApiOperation({ summary: 'Resend confirmation email (Devise-compatible)' })
+  @ApiResponse({ status: 200, description: 'Confirmation email sent' })
+  resendConfirmation(@Body() body: { email?: string; user?: { email: string } }) {
+    const email = body.email || body.user?.email || '';
+    return this.authService.resendConfirmation(email);
   }
 
   @Post('password')

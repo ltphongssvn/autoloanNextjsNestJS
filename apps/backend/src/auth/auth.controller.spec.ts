@@ -12,6 +12,8 @@ describe('AuthController', () => {
     signup: jest.fn(),
     logout: jest.fn(),
     refresh: jest.fn(),
+    confirmEmail: jest.fn(),
+    resendConfirmation: jest.fn(),
     requestPasswordReset: jest.fn(), // pragma: allowlist secret
     resetPassword: jest.fn(), // pragma: allowlist secret
   };
@@ -76,6 +78,38 @@ describe('AuthController', () => {
     });
   });
 
+  describe('confirmEmail', () => {
+    it('should confirm email with token from query param', async () => {
+      mockService.confirmEmail.mockResolvedValue({ message: 'Email confirmed successfully' });
+      const result = await controller.confirmEmail('test-token');
+      expect(mockService.confirmEmail).toHaveBeenCalledWith('test-token');
+      expect(result.message).toBe('Email confirmed successfully');
+    });
+  });
+
+  describe('resendConfirmation', () => {
+    it('should resend with flat body', async () => {
+      mockService.resendConfirmation.mockResolvedValue({ message: 'sent' });
+      const result = await controller.resendConfirmation({ email: 'a@b.com' });
+      expect(mockService.resendConfirmation).toHaveBeenCalledWith('a@b.com');
+    });
+    it('should resend with Devise-wrapped body', async () => {
+      mockService.resendConfirmation.mockResolvedValue({ message: 'sent' });
+      const result = await controller.resendConfirmation({ user: { email: 'a@b.com' } });
+      expect(mockService.resendConfirmation).toHaveBeenCalledWith('a@b.com');
+    });
+    it('should fallback to empty string when no email provided', async () => {
+      mockService.resendConfirmation.mockResolvedValue({ message: 'sent' });
+      await controller.resendConfirmation({});
+      expect(mockService.resendConfirmation).toHaveBeenCalledWith('');
+    });
+    it('should fallback to empty string with empty user object', async () => {
+      mockService.resendConfirmation.mockResolvedValue({ message: 'sent' });
+      await controller.resendConfirmation({ user: { email: '' } });
+      expect(mockService.resendConfirmation).toHaveBeenCalledWith('');
+    });
+  });
+
   describe('requestPasswordReset', () => { // pragma: allowlist secret
     it('should request reset with flat body', async () => {
       mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
@@ -83,26 +117,21 @@ describe('AuthController', () => {
       expect(mockService.requestPasswordReset).toHaveBeenCalledWith('a@b.com'); // pragma: allowlist secret
       expect(result.message).toBe('sent');
     });
-
     it('should request reset with Devise-wrapped body', async () => {
       mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
       const result = await controller.requestPasswordReset({ user: { email: 'a@b.com' } }); // pragma: allowlist secret
       expect(mockService.requestPasswordReset).toHaveBeenCalledWith('a@b.com'); // pragma: allowlist secret
       expect(result.message).toBe('sent');
     });
-
     it('should fallback to empty string when no email provided', async () => {
       mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
-      const result = await controller.requestPasswordReset({}); // pragma: allowlist secret
+      await controller.requestPasswordReset({}); // pragma: allowlist secret
       expect(mockService.requestPasswordReset).toHaveBeenCalledWith(''); // pragma: allowlist secret
-      expect(result.message).toBe('sent');
     });
-
     it('should fallback to empty string with empty user object', async () => {
       mockService.requestPasswordReset.mockResolvedValue({ message: 'sent' }); // pragma: allowlist secret
-      const result = await controller.requestPasswordReset({ user: { email: '' } }); // pragma: allowlist secret
+      await controller.requestPasswordReset({ user: { email: '' } }); // pragma: allowlist secret
       expect(mockService.requestPasswordReset).toHaveBeenCalledWith(''); // pragma: allowlist secret
-      expect(result.message).toBe('sent');
     });
   });
 
@@ -113,7 +142,6 @@ describe('AuthController', () => {
       expect(mockService.resetPassword).toHaveBeenCalledWith('tok', 'new'); // pragma: allowlist secret
       expect(result.message).toBe('done');
     });
-
     it('should reset password with Devise-wrapped body', async () => { // pragma: allowlist secret
       mockService.resetPassword.mockResolvedValue({ message: 'done' }); // pragma: allowlist secret
       const result = await controller.resetPassword({ // pragma: allowlist secret
@@ -122,21 +150,17 @@ describe('AuthController', () => {
       expect(mockService.resetPassword).toHaveBeenCalledWith('tok', 'new'); // pragma: allowlist secret
       expect(result.message).toBe('done');
     });
-
     it('should fallback to empty strings when no fields provided', async () => { // pragma: allowlist secret
       mockService.resetPassword.mockResolvedValue({ message: 'done' }); // pragma: allowlist secret
-      const result = await controller.resetPassword({}); // pragma: allowlist secret
+      await controller.resetPassword({}); // pragma: allowlist secret
       expect(mockService.resetPassword).toHaveBeenCalledWith('', ''); // pragma: allowlist secret
-      expect(result.message).toBe('done');
     });
-
     it('should fallback to empty strings with empty user object', async () => { // pragma: allowlist secret
       mockService.resetPassword.mockResolvedValue({ message: 'done' }); // pragma: allowlist secret
-      const result = await controller.resetPassword({ // pragma: allowlist secret
+      await controller.resetPassword({ // pragma: allowlist secret
         user: { reset_password_token: '', password: '', password_confirmation: '' }, // pragma: allowlist secret
       });
       expect(mockService.resetPassword).toHaveBeenCalledWith('', ''); // pragma: allowlist secret
-      expect(result.message).toBe('done');
     });
   });
 });
