@@ -27,6 +27,11 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --loglevel=error
+      - uses: actions/cache@v4
+        with:
+          path: apps/frontend/.next/cache
+          key: nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('apps/frontend/src/**') }}
+          restore-keys: nextjs-${{ hashFiles('**/package-lock.json') }}-
       - run: cd apps/frontend && npx next telemetry disable
       - run: cd apps/frontend && npx eslint --max-warnings=0 src/
       - run: cd apps/frontend && npx vitest run --coverage
