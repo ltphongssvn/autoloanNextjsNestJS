@@ -13,7 +13,7 @@ import { NotesModule } from './notes';
 import { UsersModule } from './users';
 import { NotificationsModule } from './notifications';
 import { SecurityHeadersMiddleware } from './security-headers.middleware';
-
+import { ApiVersioningMiddleware } from './api-versioning.middleware';
 @Module({
   imports: [
     ThrottlerModule.forRoot([
@@ -42,6 +42,6 @@ import { SecurityHeadersMiddleware } from './security-headers.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(SecurityHeadersMiddleware).forRoutes('*');
+    consumer.apply(SecurityHeadersMiddleware, ApiVersioningMiddleware).forRoutes('*');
   }
 }
