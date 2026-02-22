@@ -439,3 +439,44 @@ describe('ApplicationsService', () => {
     });
   });
 });
+
+import { applyOdataSelect } from './applications.service';
+
+describe('applyOdataSelect', () => {
+  const items = [
+    { id: 1, status: 'draft', loan_amount: 25000, created_at: '2026-01-01', extra_field: 'x' },
+    { id: 2, status: 'submitted', loan_amount: 30000, created_at: '2026-02-01', extra_field: 'y' },
+  ];
+
+  it('should return all data when no $select', () => {
+    expect(applyOdataSelect(items)).toEqual(items);
+    expect(applyOdataSelect(items, undefined)).toEqual(items);
+  });
+
+  it('should filter to selected fields', () => {
+    const result = applyOdataSelect(items, 'status,loan_amount');
+    expect(result[0]).toEqual({ id: 1, status: 'draft', loan_amount: 25000 });
+    expect(result[1]).toEqual({ id: 2, status: 'submitted', loan_amount: 30000 });
+  });
+
+  it('should always include id', () => {
+    const result = applyOdataSelect(items, 'status');
+    expect(result[0]).toEqual({ id: 1, status: 'draft' });
+  });
+
+  it('should ignore disallowed fields', () => {
+    const result = applyOdataSelect(items, 'status,extra_field');
+    expect(result[0]).toEqual({ id: 1, status: 'draft' });
+    expect(result[0]).not.toHaveProperty('extra_field');
+  });
+
+  it('should return all data when all fields invalid', () => {
+    const result = applyOdataSelect(items, 'bogus,fake');
+    expect(result).toEqual(items);
+  });
+
+  it('should handle empty string', () => {
+    const result = applyOdataSelect(items, '');
+    expect(result).toEqual(items);
+  });
+});

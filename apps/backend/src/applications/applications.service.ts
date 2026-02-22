@@ -8,6 +8,7 @@ import { NotificationsService } from '../notifications';
 export interface ApplicationQuery {
   $filter?: string;
   $orderby?: string;
+  $select?: string;
   status?: string;
   page?: number;
   per_page?: number;
@@ -422,4 +423,20 @@ export class ApplicationsService {
     if (condition === 'used_certified') return 'certified';
     return ['new', 'used', 'certified'].includes(condition) ? condition : undefined;
   }
+}
+
+const ALLOWED_SELECT_FIELDS = ['id', 'application_number', 'status', 'current_step', 'loan_amount', 'down_payment', 'loan_term', 'interest_rate', 'monthly_payment', 'created_at', 'updated_at', 'submitted_at', 'decided_at'];
+
+export function applyOdataSelect<T extends Record<string, any>>(data: T[], selectStr?: string): T[] {
+  if (!selectStr) return data;
+  const fields = selectStr.split(',').map((f) => f.trim()).filter((f) => ALLOWED_SELECT_FIELDS.includes(f));
+  if (fields.length === 0) return data;
+  if (!fields.includes('id')) fields.unshift('id');
+  return data.map((item) => {
+    const picked: Record<string, any> = {};
+    for (const field of fields) {
+      if (field in item) picked[field] = item[field];
+    }
+    return picked as T;
+  });
 }
