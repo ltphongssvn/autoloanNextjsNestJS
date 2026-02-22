@@ -111,7 +111,7 @@ export class ApplicationsService {
     const year = new Date().getFullYear();
     const appNumber = `AL-${year}-${String(count + 1).padStart(5, '0')}`;
 
-    const application = await this.prisma.$transaction(async (tx) => {
+    const application = await this.prisma.$transaction(async (tx: any) => {
       const loanAmount = appDto.loan_details?.amount ?? appDto.loanAmount ?? undefined;
       const downPayment = appDto.loan_details?.down_payment ?? appDto.downPayment ?? undefined;
       const loanTerm = appDto.loan_details?.term ?? appDto.loanTerm ?? undefined;
@@ -286,7 +286,7 @@ export class ApplicationsService {
       throw new UnprocessableEntityException('Only draft applications can be updated');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    return this.prisma.$transaction(async (tx: any) => {
       const loanAmount = appDto.loan_details?.amount ?? appDto.loanAmount ?? application.loanAmount;
       const downPayment = appDto.loan_details?.down_payment ?? appDto.downPayment ?? application.downPayment;
       const loanTerm = appDto.loan_details?.term ?? appDto.loanTerm ?? application.loanTerm;
