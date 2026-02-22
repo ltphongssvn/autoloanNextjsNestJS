@@ -37,7 +37,7 @@ describe('UnderwriterController', () => {
       const result = await controller.findAll();
       expect(result).toEqual(apps);
       expect(mockPrisma.application.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { status: { in: ['submitted', 'under_review', 'pending_documents'] } } }),
+        expect.objectContaining({ where: { status: { in: ['submitted', 'under_review', 'pending_documents', 'approved', 'rejected'] } } }),
       );
     });
   });

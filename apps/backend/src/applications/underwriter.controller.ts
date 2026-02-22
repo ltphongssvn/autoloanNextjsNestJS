@@ -29,7 +29,7 @@ export class UnderwriterController {
   @ApiOperation({ summary: 'List applications for underwriter review' })
   findAll() {
     return this.prisma.application.findMany({
-      where: { status: { in: ['submitted', 'under_review', 'pending_documents'] } },
+      where: { status: { in: ['submitted', 'under_review', 'pending_documents', 'approved', 'rejected'] } },
       orderBy: { createdAt: 'desc' },
       include: { user: true },
     });
