@@ -7,7 +7,7 @@ export class DocumentsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async upload(applicationId: number, userId: number, file: Express.Multer.File, docType: string) {
-    return this.prisma.document.create({
+    const doc = await this.prisma.document.create({
       data: {
         applicationId,
         docType: docType as any,
@@ -19,13 +19,15 @@ export class DocumentsService {
         uploadedAt: new Date(),
       },
     });
+    return this.withDownloadUrl(doc, applicationId);
   }
 
   async findByApplication(applicationId: number) {
-    return this.prisma.document.findMany({
+    const docs = await this.prisma.document.findMany({
       where: { applicationId },
       orderBy: { createdAt: 'desc' },
     });
+    return docs.map((doc) => this.withDownloadUrl(doc, applicationId));
   }
 
   async findOne(id: number) {
@@ -33,7 +35,7 @@ export class DocumentsService {
     if (!doc) {
       throw new NotFoundException(`Document #${id} not found`);
     }
-    return doc;
+    return this.withDownloadUrl(doc, doc.applicationId);
   }
 
   async remove(id: number, userId: number) {
@@ -56,7 +58,7 @@ export class DocumentsService {
     if (!doc) {
       throw new NotFoundException(`Document #${id} not found`);
     }
-    return this.prisma.document.update({
+    const updated = await this.prisma.document.update({
       where: { id },
       data: {
         status: status as any,
@@ -65,5 +67,15 @@ export class DocumentsService {
         rejectionNote: rejectionNote ?? doc.rejectionNote,
       },
     });
+    return this.withDownloadUrl(updated, updated.applicationId);
+  }
+
+  private withDownloadUrl(doc: any, applicationId: number) {
+    return {
+      ...doc,
+      download_url: doc.fileUrl
+        ? `/api/v1/applications/${applicationId}/documents/${doc.id}/download`
+        : null,
+    };
   }
 }

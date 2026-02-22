@@ -1,8 +1,8 @@
 // apps/backend/src/applications/applications.controller.ts
-import { Controller, Get, Post, Patch, Delete, Param, Body, Req, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, Query, Req, Res, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
-import { ApplicationsService } from './applications.service';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationsService, ApplicationQuery } from './applications.service';
+import { ApplicationStatus } from './application-status.type';
 import { StatusHistoryService } from './status-history.service';
 import { ApplicationWorkflowService } from './application-workflow.service';
 import { AgreementPdfService } from './agreement-pdf.service';
@@ -11,10 +11,13 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { JwtPayload } from '../auth/jwt.strategy';
 import { CreateApplicationDto } from './create-application.dto';
+import { serializeApplication } from './application.serializer';
+import { paginationMetadata } from './pagination.helper';
 import { Response } from 'express';
 
 interface AuthenticatedRequest {
   user: JwtPayload;
+  path?: string;
 }
 
 @ApiTags('Applications')
@@ -37,20 +40,40 @@ export class ApplicationsController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List applications (own for customers, all for staff)' })
-  findAll(@Req() req: AuthenticatedRequest) {
+  @ApiOperation({ summary: 'List applications with OData filtering, sorting, and pagination' })
+  async findAll(
+    @Req() req: AuthenticatedRequest,
+    @Query('$filter') $filter?: string,
+    @Query('$orderby') $orderby?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('per_page') per_page?: string,
+  ) {
+    const query: ApplicationQuery = {
+      $filter,
+      $orderby,
+      status,
+      page: page ? parseInt(page, 10) : undefined,
+      per_page: per_page ? parseInt(per_page, 10) : undefined,
+    };
     const { sub, role } = req.user;
-    if (role === 'loan_officer' || role === 'underwriter') {
-      return this.applicationsService.findAll();
-    }
-    return this.applicationsService.findAllForUser(sub);
+    const result = (role === 'loan_officer' || role === 'underwriter')
+      ? await this.applicationsService.findAll(query)
+      : await this.applicationsService.findAllForUser(sub, query);
+
+    const basePath = req.path || '/api/v1/applications';
+    return {
+      data: result.data.map((app: any) => serializeApplication(app, { currentUserId: sub })),
+      pagination: paginationMetadata(result.pagination.page, result.pagination.per_page, result.pagination.total, basePath),
+    };
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get application detail with relations' })
   @ApiResponse({ status: 404, description: 'Application not found' })
-  findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
-    return this.applicationsService.findOne(id, req.user.sub, req.user.role);
+  async findOne(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    const application = await this.applicationsService.findOne(id, req.user.sub, req.user.role);
+    return serializeApplication(application, { currentUserId: req.user.sub });
   }
 
   @Patch(':id')

@@ -18,13 +18,30 @@ export class ApiKeysService {
     return `${KEY_PREFIX}${crypto.randomBytes(KEY_LENGTH).toString('hex')}`;
   }
 
+  private formatKey(key: any) {
+    return { ...key, key_prefix: key.keyDigest?.slice(0, 8) || null };
+  }
+
   async list(userId: number) {
     const keys = await this.prisma.apiKey.findMany({
       where: { userId },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, name: true, active: true, expiresAt: true, lastUsedAt: true, createdAt: true },
+      select: { id: true, name: true, active: true, expiresAt: true, lastUsedAt: true, createdAt: true, keyDigest: true },
     });
-    return keys;
+    return keys.map((k) => {
+      const { keyDigest, ...rest } = k;
+      return { ...rest, key_prefix: keyDigest.slice(0, 8) };
+    });
+  }
+
+  async findOne(userId: number, keyId: number) {
+    const apiKey = await this.prisma.apiKey.findFirst({
+      where: { id: keyId, userId },
+      select: { id: true, name: true, active: true, expiresAt: true, lastUsedAt: true, createdAt: true, keyDigest: true },
+    });
+    if (!apiKey) throw new NotFoundException('API key not found');
+    const { keyDigest, ...rest } = apiKey;
+    return { ...rest, key_prefix: keyDigest.slice(0, 8) };
   }
 
   async create(userId: number, name: string, expiresAt?: Date) {
@@ -32,9 +49,10 @@ export class ApiKeysService {
     const keyDigest = this.digest(plainKey);
     const apiKey = await this.prisma.apiKey.create({
       data: { name, keyDigest, userId, expiresAt: expiresAt || null },
-      select: { id: true, name: true, active: true, expiresAt: true, createdAt: true },
+      select: { id: true, name: true, active: true, expiresAt: true, createdAt: true, keyDigest: true },
     });
-    return { ...apiKey, key: plainKey };
+    const { keyDigest: digest, ...rest } = apiKey;
+    return { ...rest, key: plainKey, key_prefix: digest.slice(0, 8) };
   }
 
   async revoke(userId: number, keyId: number) {

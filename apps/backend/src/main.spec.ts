@@ -4,6 +4,7 @@ const mockApp = {
   enableCors: jest.fn(),
   useGlobalFilters: jest.fn(),
   useGlobalPipes: jest.fn(),
+  useGlobalInterceptors: jest.fn(),
   listen: jest.fn().mockResolvedValue(undefined),
   close: jest.fn().mockResolvedValue(undefined),
 };
@@ -35,6 +36,9 @@ jest.mock('@nestjs/swagger', () => {
 jest.mock('./http-exception.filter', () => ({
   GlobalExceptionFilter: jest.fn(),
 }));
+jest.mock('./response-envelope.interceptor', () => ({
+  ResponseEnvelopeInterceptor: jest.fn(),
+}));
 import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import { bootstrap } from './main';
@@ -57,6 +61,7 @@ describe('Bootstrap', () => {
     expect(mockApp.enableCors).toHaveBeenCalled();
     expect(mockApp.useGlobalFilters).toHaveBeenCalled();
     expect(mockApp.useGlobalPipes).toHaveBeenCalled();
+    expect(mockApp.useGlobalInterceptors).toHaveBeenCalled();
     expect(mockApp.listen).toHaveBeenCalledWith('4000');
     expect(SwaggerModule.createDocument).toHaveBeenCalled();
     expect(SwaggerModule.setup).toHaveBeenCalledWith('api/docs', mockApp, expect.any(Object));

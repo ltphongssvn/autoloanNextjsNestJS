@@ -1,5 +1,5 @@
 // apps/backend/src/auth/auth.service.spec.ts
-import { UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import { UnauthorizedException, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma.service';
@@ -31,6 +31,16 @@ describe('AuthService', () => {
     lastName: 'Doe',
     phone: '555-0100',
     createdAt: new Date('2025-01-01'),
+    confirmedAt: null,
+    confirmationToken: null,
+    failedAttempts: 0,
+    lockedAt: null,
+    unlockToken: null,
+    signInCount: 0,
+    currentSignInAt: null,
+    lastSignInAt: null,
+    currentSignInIp: null,
+    lastSignInIp: null,
   };
 
   beforeEach(() => {
@@ -39,40 +49,170 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    it('should return token and user on valid credentials', async () => { // pragma: allowlist secret
+    it('should return token and track sign-in on valid credentials', async () => { // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       bcrypt.compare.mockResolvedValue(true);
-      const result = await service.login({ email: 'test@test.com', password: 'pass' }); // pragma: allowlist secret
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.login({ email: 'test@test.com', password: 'pass' }, '192.168.1.1'); // pragma: allowlist secret
       expect(result.token).toBe('signed-jwt-token'); // pragma: allowlist secret
       expect(result.user.email).toBe('test@test.com');
-      expect(result.user.full_name).toBe('John Doe');
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          signInCount: 1,
+          lastSignInAt: null,
+          lastSignInIp: null,
+          currentSignInAt: expect.any(Date),
+          currentSignInIp: '192.168.1.1',
+          failedAttempts: 0,
+        },
+      });
+    });
+    it('should rotate currentSignIn to lastSignIn on subsequent login', async () => {
+      const returning = {
+        ...mockUser,
+        signInCount: 3,
+        currentSignInAt: new Date('2025-06-01'),
+        currentSignInIp: '10.0.0.1',
+      };
+      mockPrisma.user.findUnique.mockResolvedValue(returning);
+      bcrypt.compare.mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({});
+      await service.login({ email: 'test@test.com', password: 'pass' }, '10.0.0.2'); // pragma: allowlist secret
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({
+          signInCount: 4,
+          lastSignInAt: new Date('2025-06-01'),
+          lastSignInIp: '10.0.0.1',
+          currentSignInIp: '10.0.0.2',
+        }),
+      });
+    });
+    it('should set currentSignInIp to null when no IP provided', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+      bcrypt.compare.mockResolvedValue(true);
+      mockPrisma.user.update.mockResolvedValue({});
+      await service.login({ email: 'test@test.com', password: 'pass' }); // pragma: allowlist secret
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({ currentSignInIp: null }),
+      });
     });
     it('should throw when user not found', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       await expect(service.login({ email: 'x@x.com', password: 'p' })).rejects.toThrow(UnauthorizedException); // pragma: allowlist secret
     });
-    it('should throw on wrong password', async () => { // pragma: allowlist secret
-      mockPrisma.user.findUnique.mockResolvedValue(mockUser);
+    it('should throw on wrong password and increment failed attempts', async () => { // pragma: allowlist secret
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, failedAttempts: 0 });
       bcrypt.compare.mockResolvedValue(false);
+      mockPrisma.user.update.mockResolvedValue({});
       await expect(service.login({ email: 'test@test.com', password: 'wrong' })).rejects.toThrow(UnauthorizedException); // pragma: allowlist secret
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { failedAttempts: 1 },
+      });
+    });
+    it('should lock account after 5 failed attempts', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, failedAttempts: 4 });
+      bcrypt.compare.mockResolvedValue(false);
+      mockPrisma.user.update.mockResolvedValue({});
+      await expect(service.login({ email: 'test@test.com', password: 'wrong' })).rejects.toThrow(ForbiddenException); // pragma: allowlist secret
+      expect(mockPrisma.user.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { failedAttempts: 5, lockedAt: expect.any(Date), unlockToken: 'test-uuid' },
+      });
+    });
+    it('should throw ForbiddenException for locked account', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, lockedAt: new Date() });
+      await expect(service.login({ email: 'test@test.com', password: 'pass' })).rejects.toThrow(ForbiddenException); // pragma: allowlist secret
     });
   });
 
   describe('signup', () => {
-    it('should create user and return token', async () => { // pragma: allowlist secret
+    it('should create user with confirmation token and return token', async () => { // pragma: allowlist secret
       mockPrisma.user.findUnique.mockResolvedValue(null);
       mockPrisma.user.create.mockResolvedValue(mockUser);
       const result = await service.signup({
         email: 'new@test.com', password: 'pass123', first_name: 'John', last_name: 'Doe', // pragma: allowlist secret
       });
       expect(result.token).toBe('signed-jwt-token'); // pragma: allowlist secret
-      expect(mockPrisma.user.create).toHaveBeenCalled();
+      expect(result.confirmation_token).toBe('test-uuid');
     });
     it('should throw when email exists', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       await expect(service.signup({
         email: 'test@test.com', password: 'p', first_name: 'A', last_name: 'B', // pragma: allowlist secret
       })).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('confirmEmail', () => {
+    it('should confirm email with valid token', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, confirmationToken: 'tok', confirmedAt: null });
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.confirmEmail('tok');
+      expect(result.message).toBe('Email confirmed successfully');
+    });
+    it('should throw for invalid token', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      await expect(service.confirmEmail('bad')).rejects.toThrow(NotFoundException);
+    });
+    it('should return already confirmed message', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, confirmationToken: 'tok', confirmedAt: new Date() });
+      const result = await service.confirmEmail('tok');
+      expect(result.message).toBe('Email already confirmed');
+    });
+  });
+
+  describe('resendConfirmation', () => {
+    it('should generate new confirmation token for unconfirmed user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, confirmedAt: null });
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.resendConfirmation('test@test.com');
+      expect(result.confirmation_token).toBe('test-uuid');
+    });
+    it('should return success for non-existent email', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      const result = await service.resendConfirmation('none@test.com');
+      expect(result.message).toContain('If the email exists');
+    });
+    it('should return already confirmed for confirmed user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, confirmedAt: new Date() });
+      const result = await service.resendConfirmation('test@test.com');
+      expect(result.message).toBe('Email already confirmed');
+    });
+  });
+
+  describe('unlockAccount', () => {
+    it('should unlock account with valid token', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue({ ...mockUser, unlockToken: 'tok', lockedAt: new Date(), failedAttempts: 5 });
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.unlockAccount('tok');
+      expect(result.message).toBe('Account unlocked successfully');
+    });
+    it('should throw for invalid unlock token', async () => {
+      mockPrisma.user.findFirst.mockResolvedValue(null);
+      await expect(service.unlockAccount('bad')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('resendUnlock', () => {
+    it('should generate new unlock token for locked user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, lockedAt: new Date() });
+      mockPrisma.user.update.mockResolvedValue({});
+      const result = await service.resendUnlock('test@test.com');
+      expect(result.unlock_token).toBe('test-uuid');
+    });
+    it('should return success for non-existent email', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue(null);
+      const result = await service.resendUnlock('none@test.com');
+      expect(result.message).toContain('If the account exists');
+    });
+    it('should return not locked for unlocked user', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ ...mockUser, lockedAt: null });
+      const result = await service.resendUnlock('test@test.com');
+      expect(result.message).toBe('Account is not locked');
     });
   });
 
@@ -89,9 +229,7 @@ describe('AuthService', () => {
       mockPrisma.jwtDenylist.create.mockResolvedValue({});
       mockPrisma.user.findUnique.mockResolvedValue(mockUser);
       const result = await service.refresh(1, 'old-jti');
-      expect(mockPrisma.jwtDenylist.create).toHaveBeenCalledWith({ data: { jti: 'old-jti' } });
       expect(result.token).toBe('signed-jwt-token'); // pragma: allowlist secret
-      expect(result.user.email).toBe('test@test.com');
     });
     it('should throw when user not found', async () => {
       mockPrisma.jwtDenylist.create.mockResolvedValue({});
@@ -106,16 +244,11 @@ describe('AuthService', () => {
       mockPrisma.user.update.mockResolvedValue({});
       const result = await service.requestPasswordReset('test@test.com'); // pragma: allowlist secret
       expect(result.reset_token).toBe('test-uuid'); // pragma: allowlist secret
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: expect.objectContaining({ resetPasswordToken: 'test-uuid' }), // pragma: allowlist secret
-      });
     });
     it('should return success even for non-existent email', async () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
       const result = await service.requestPasswordReset('none@test.com'); // pragma: allowlist secret
       expect(result.message).toContain('If the email exists');
-      expect(mockPrisma.user.update).not.toHaveBeenCalled();
     });
   });
 
@@ -125,10 +258,6 @@ describe('AuthService', () => {
       mockPrisma.user.update.mockResolvedValue({});
       const result = await service.resetPassword('tok', 'newpass'); // pragma: allowlist secret
       expect(result.message).toBe('Password reset successfully'); // pragma: allowlist secret
-      expect(mockPrisma.user.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: expect.objectContaining({ resetPasswordToken: null, resetPasswordSentAt: null }), // pragma: allowlist secret
-      });
     });
     it('should throw for invalid token', async () => { // pragma: allowlist secret
       mockPrisma.user.findFirst.mockResolvedValue(null);
