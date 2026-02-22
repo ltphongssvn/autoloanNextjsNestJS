@@ -1,5 +1,4 @@
 import { defineConfig } from '@playwright/test';
-
 export default defineConfig({
   testDir: './e2e',
   timeout: 30000,
@@ -11,7 +10,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'cd apps/backend && npm run start:dev',
+      command: 'cd apps/backend && npm run dev',
       port: 3001,
       timeout: 30000,
       reuseExistingServer: true,
