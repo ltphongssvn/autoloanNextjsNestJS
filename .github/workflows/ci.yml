@@ -14,6 +14,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - run: npx prisma generate
       - run: cd apps/backend && npx tsc --noEmit
       - run: cd apps/backend && npx jest --coverage
       - run: cd apps/backend && npx nest build
