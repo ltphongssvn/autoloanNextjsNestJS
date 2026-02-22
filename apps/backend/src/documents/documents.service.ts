@@ -27,7 +27,7 @@ export class DocumentsService {
       where: { applicationId },
       orderBy: { createdAt: 'desc' },
     });
-    return docs.map((doc) => this.withDownloadUrl(doc, applicationId));
+    return docs.map((doc: any) => this.withDownloadUrl(doc, applicationId));
   }
 
   async findOne(id: number) {
