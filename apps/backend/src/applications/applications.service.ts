@@ -16,7 +16,6 @@ export interface ApplicationQuery {
 const ALLOWED_FILTER_FIELDS = ['status', 'current_step', 'loan_term', 'interest_rate', 'created_at', 'updated_at', 'submitted_at'];
 const ALLOWED_ORDER_FIELDS = ['status', 'current_step', 'created_at', 'updated_at', 'submitted_at', 'loan_amount'];
 
-// Map snake_case filter fields to Prisma camelCase
 const FIELD_MAP: Record<string, string> = {
   status: 'status',
   current_step: 'currentStep',
@@ -26,6 +25,13 @@ const FIELD_MAP: Record<string, string> = {
   updated_at: 'updatedAt',
   submitted_at: 'submittedAt',
   loan_amount: 'loanAmount',
+};
+
+const LIST_INCLUDES = {
+  user: true,
+  addresses: true,
+  vehicles: true,
+  financialInfos: true,
 };
 
 @Injectable()
@@ -42,7 +48,6 @@ export class ApplicationsService {
     for (const part of parts) {
       const trimmed = part.trim();
 
-      // contains(field, 'value')
       const containsMatch = trimmed.match(/^contains\s*\(\s*(\w+)\s*,\s*'([^']*)'\s*\)$/i);
       if (containsMatch) {
         const [, field, value] = containsMatch;
@@ -52,7 +57,6 @@ export class ApplicationsService {
         continue;
       }
 
-      // field op value
       const opMatch = trimmed.match(/^(\w+)\s+(eq|ne|gt|ge|lt|le)\s+(.+)$/i);
       if (opMatch) {
         const [, field, op, rawValue] = opMatch;
@@ -206,6 +210,7 @@ export class ApplicationsService {
       this.prisma.application.findMany({
         where,
         orderBy: finalOrderBy.length > 0 ? finalOrderBy : orderBy,
+        include: LIST_INCLUDES,
         skip: (page - 1) * perPage,
         take: perPage,
       }),
@@ -235,7 +240,7 @@ export class ApplicationsService {
       this.prisma.application.findMany({
         where,
         orderBy: finalOrderBy.length > 0 ? finalOrderBy : orderBy,
-        include: { user: true },
+        include: LIST_INCLUDES,
         skip: (page - 1) * perPage,
         take: perPage,
       }),
