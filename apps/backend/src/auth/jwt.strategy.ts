@@ -8,6 +8,7 @@ export interface JwtPayload {
   sub: number;
   email: string;
   role: string;
+  scopes: string[];
   jti: string;
 }
 
@@ -25,19 +26,15 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const denied = await this.prisma.jwtDenylist.findFirst({
       where: { jti: payload.jti },
     });
-
     if (denied) {
       throw new UnauthorizedException('Token has been revoked');
     }
-
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
-
     if (!user) {
       throw new UnauthorizedException('User not found');
     }
-
     return payload;
   }
 }

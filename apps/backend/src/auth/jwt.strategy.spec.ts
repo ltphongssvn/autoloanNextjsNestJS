@@ -31,6 +31,7 @@ describe('JwtStrategy', () => {
     sub: 1,
     email: 'test@example.com',
     role: 'customer',
+    scopes: ['applications:read', 'applications:write', 'documents:read', 'documents:write', 'profile:read', 'profile:write'],
     jti: 'unique-token-id',
   };
 
@@ -41,7 +42,6 @@ describe('JwtStrategy', () => {
   it('should validate and return payload for valid token', async () => {
     mockPrisma.jwtDenylist.findFirst.mockResolvedValue(null);
     mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: 'test@example.com' });
-
     const result = await strategy.validate(validPayload);
     expect(result).toEqual(validPayload);
     expect(mockPrisma.jwtDenylist.findFirst).toHaveBeenCalledWith({
@@ -54,7 +54,6 @@ describe('JwtStrategy', () => {
 
   it('should throw UnauthorizedException if token is revoked', async () => {
     mockPrisma.jwtDenylist.findFirst.mockResolvedValue({ id: 1, jti: 'unique-token-id' });
-
     await expect(strategy.validate(validPayload)).rejects.toThrow(UnauthorizedException);
     await expect(strategy.validate(validPayload)).rejects.toThrow('Token has been revoked');
   });
@@ -62,7 +61,6 @@ describe('JwtStrategy', () => {
   it('should throw UnauthorizedException if user not found', async () => {
     mockPrisma.jwtDenylist.findFirst.mockResolvedValue(null);
     mockPrisma.user.findUnique.mockResolvedValue(null);
-
     await expect(strategy.validate(validPayload)).rejects.toThrow(UnauthorizedException);
     await expect(strategy.validate(validPayload)).rejects.toThrow('User not found');
   });

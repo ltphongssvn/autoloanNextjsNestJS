@@ -7,6 +7,14 @@ import { v4 as uuidv4 } from 'uuid';
 
 const MAX_FAILED_ATTEMPTS = 5;
 
+export const ROLE_SCOPES: Record<string, string[]> = {
+  customer: ['applications:read', 'applications:write', 'documents:read', 'documents:write', 'profile:read', 'profile:write'],
+  loan_officer: ['applications:read', 'applications:write', 'applications:review', 'documents:read', 'documents:write',
+    'documents:verify', 'profile:read', 'users:read'],
+  underwriter: ['applications:read', 'applications:write', 'applications:approve', 'applications:reject',
+    'documents:read', 'documents:verify', 'profile:read', 'users:read'],
+};
+
 interface LoginDto {
   email: string;
   password: string;
@@ -42,7 +50,8 @@ export class AuthService {
 
   private generateToken(user: any) {
     const jti = uuidv4();
-    return this.jwtService.sign({ sub: user.id, email: user.email, role: user.role, jti });
+    const scopes = ROLE_SCOPES[user.role] || [];
+    return this.jwtService.sign({ sub: user.id, email: user.email, role: user.role, scopes, jti });
   }
 
   async login(dto: LoginDto) {
@@ -60,7 +69,6 @@ export class AuthService {
       if (attempts >= MAX_FAILED_ATTEMPTS) {
         lockData.lockedAt = new Date();
         lockData.unlockToken = uuidv4();
-        // In production, send unlock email
       }
       await this.prisma.user.update({ where: { id: user.id }, data: lockData });
       if (attempts >= MAX_FAILED_ATTEMPTS) {
@@ -68,7 +76,6 @@ export class AuthService {
       }
       throw new UnauthorizedException('Invalid credentials');
     }
-    // Reset failed attempts on successful login
     if (user.failedAttempts > 0) {
       await this.prisma.user.update({ where: { id: user.id }, data: { failedAttempts: 0 } });
     }
@@ -152,7 +159,6 @@ export class AuthService {
       where: { id: user.id },
       data: { unlockToken },
     });
-    // In production, send unlock email
     return { message: 'If the account exists and is locked, unlock instructions have been sent', unlock_token: unlockToken };
   }
 
