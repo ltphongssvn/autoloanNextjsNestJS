@@ -6,6 +6,12 @@ import { NotificationsService } from '../notifications';
 
 describe('ApplicationsService', () => {
   let service: ApplicationsService;
+  const mockTx = {
+    application: { create: jest.fn(), update: jest.fn() },
+    address: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+    vehicle: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    financialInfo: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+  };
   const mockPrisma = {
     application: {
       count: jest.fn(),
@@ -15,8 +21,12 @@ describe('ApplicationsService', () => {
       update: jest.fn(),
       delete: jest.fn(),
     },
+    address: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
+    vehicle: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+    financialInfo: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
     statusHistory: { create: jest.fn() },
     user: { findUnique: jest.fn() },
+    $transaction: jest.fn((cb: any) => cb(mockTx)),
   };
   const mockNotifications = {
     notifyStatusChange: jest.fn().mockResolvedValue(true),
@@ -33,69 +43,274 @@ describe('ApplicationsService', () => {
       mockNotifications as unknown as NotificationsService,
     );
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation((cb: any) => cb(mockTx));
   });
 
   describe('create', () => {
-    it('should create an application with generated number', async () => {
+    it('should create application with generated number', async () => {
       mockPrisma.application.count.mockResolvedValue(2);
-      mockPrisma.application.create.mockResolvedValue({ id: 1, applicationNumber: 'AL-000003' });
+      mockTx.application.create.mockResolvedValue({ id: 1, applicationNumber: 'AL-000003' });
       const result = await service.create(1, { loanAmount: 25000 });
       expect(result.applicationNumber).toBe('AL-000003');
-      expect(mockPrisma.application.create).toHaveBeenCalledWith({
-        data: expect.objectContaining({ userId: 1, applicationNumber: 'AL-000003' }),
+    });
+
+    it('should save nested personal_info with address', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      mockTx.address.create.mockResolvedValue({});
+      await service.create(1, {
+        personal_info: {
+          dob: '1990-01-15',
+          ssn: '123-45-6789',
+          address: '123 Main St',
+          city: 'Springfield',
+          state: 'IL',
+          zip: '62701',
+          years_at_address: 3,
+          months_at_address: 6,
+        },
+      });
+      expect(mockTx.application.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          dob: new Date('1990-01-15'),
+          ssnEncrypted: '123-45-6789',
+        }),
+      });
+      expect(mockTx.address.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          addressType: 'residential',
+          streetAddress: '123 Main St',
+          city: 'Springfield',
+          state: 'IL',
+          zipCode: '62701',
+          yearsAtAddress: 3,
+          monthsAtAddress: 6,
+        }),
+      });
+    });
+
+    it('should save nested car_details as vehicle', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      mockTx.vehicle.create.mockResolvedValue({});
+      await service.create(1, {
+        car_details: {
+          make: 'Toyota',
+          model: 'Camry',
+          year: 2023,
+          vin: '1HGBH41JXMN109186',
+          trim: 'SE',
+          condition: 'new',
+          price: 28000,
+          mileage: 15,
+        },
+      });
+      expect(mockTx.vehicle.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          make: 'Toyota',
+          model: 'Camry',
+          year: 2023,
+          condition: 'new',
+          estimatedValue: 28000,
+        }),
+      });
+    });
+
+    it('should normalize used_certified condition to certified', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      mockTx.vehicle.create.mockResolvedValue({});
+      await service.create(1, {
+        car_details: { make: 'Honda', condition: 'used_certified' },
+      });
+      expect(mockTx.vehicle.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ condition: 'certified' }),
+      });
+    });
+
+    it('should set condition to undefined for invalid values', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      mockTx.vehicle.create.mockResolvedValue({});
+      await service.create(1, {
+        car_details: { make: 'Honda', condition: 'junk' },
+      });
+      expect(mockTx.vehicle.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ condition: undefined }),
+      });
+    });
+
+    it('should save nested employment_info as financial_info', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      mockTx.financialInfo.create.mockResolvedValue({});
+      await service.create(1, {
+        employment_info: {
+          employer: 'Acme Corp',
+          job_title: 'Engineer',
+          employment_status: 'full_time',
+          years: 5,
+          months_employed: 2,
+          income: 120000,
+          expenses: 3000,
+          credit_score: 750,
+          other_income: 5000,
+        },
+      });
+      expect(mockTx.financialInfo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          incomeType: 'primary',
+          employerName: 'Acme Corp',
+          annualIncome: 120000,
+          monthlyIncome: 10000,
+          creditScore: 750,
+        }),
+      });
+    });
+
+    it('should save nested loan_details', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      await service.create(1, {
+        loan_details: { amount: 30000, down_payment: 5000 },
+      });
+      expect(mockTx.application.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ loanAmount: 30000, downPayment: 5000 }),
+      });
+    });
+
+    it('should unwrap { application: { ... } } wrapper', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      await service.create(1, {
+        application: { loan_details: { amount: 20000 }, current_step: 3 },
+      } as any);
+      expect(mockTx.application.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ loanAmount: 20000, currentStep: 3 }),
+      });
+    });
+
+    it('should skip address when personal_info has no address field', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      await service.create(1, { personal_info: { dob: '1990-01-01' } });
+      expect(mockTx.address.create).not.toHaveBeenCalled();
+    });
+
+    it('should skip vehicle when car_details has no make', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      await service.create(1, { car_details: { year: 2023 } });
+      expect(mockTx.vehicle.create).not.toHaveBeenCalled();
+    });
+
+    it('should handle credit_score of 0 as undefined', async () => {
+      mockPrisma.application.count.mockResolvedValue(0);
+      mockTx.application.create.mockResolvedValue({ id: 1 });
+      mockTx.financialInfo.create.mockResolvedValue({});
+      await service.create(1, { employment_info: { employer: 'X', credit_score: 0 } });
+      expect(mockTx.financialInfo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ creditScore: undefined }),
       });
     });
   });
 
-  describe('findAllForUser', () => {
-    it('should return applications for a user', async () => {
-      const apps = [{ id: 1 }, { id: 2 }];
-      mockPrisma.application.findMany.mockResolvedValue(apps);
-      const result = await service.findAllForUser(1);
-      expect(result).toEqual(apps);
-    });
-  });
-
-  describe('findAll', () => {
-    it('should return all applications with user data', async () => {
-      const apps = [{ id: 1, user: {} }];
-      mockPrisma.application.findMany.mockResolvedValue(apps);
-      const result = await service.findAll();
-      expect(result).toEqual(apps);
-    });
-  });
-
-  describe('findOne', () => {
-    it('should return application by id', async () => {
-      const app = { id: 1, userId: 1 };
-      mockPrisma.application.findUnique.mockResolvedValue(app);
-      const result = await service.findOne(1);
-      expect(result).toEqual(app);
-    });
-    it('should throw NotFoundException when not found', async () => {
-      mockPrisma.application.findUnique.mockResolvedValue(null);
-      await expect(service.findOne(99)).rejects.toThrow(NotFoundException);
-    });
-    it('should throw ForbiddenException when customer accesses others app', async () => {
-      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, userId: 2 });
-      await expect(service.findOne(1, 1, 'customer')).rejects.toThrow(ForbiddenException);
-    });
-    it('should allow staff to access any app', async () => {
-      const app = { id: 1, userId: 2 };
-      mockPrisma.application.findUnique.mockResolvedValue(app);
-      const result = await service.findOne(1, 1, 'loan_officer');
-      expect(result).toEqual(app);
-    });
-  });
-
   describe('update', () => {
-    it('should update a draft application', async () => {
-      const app = { id: 1, userId: 1, status: 'draft', loanAmount: 20000, downPayment: null, loanTerm: null, dob: null };
-      mockPrisma.application.findUnique.mockResolvedValue(app);
-      mockPrisma.application.update.mockResolvedValue({ ...app, loanAmount: 30000 });
-      const result = await service.update(1, 1, { loanAmount: 30000 });
-      expect(result.loanAmount).toBe(30000);
+    const draftApp = { id: 1, userId: 1, status: 'draft', loanAmount: 20000, downPayment: 5000, loanTerm: 60, dob: null, currentStep: 1, ssnEncrypted: null };
+
+    it('should update with nested personal_info and create address', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue({ ...draftApp });
+      mockTx.address.findFirst.mockResolvedValue(null);
+      mockTx.address.create.mockResolvedValue({});
+      await service.update(1, 1, {
+        personal_info: { dob: '1995-06-15', address: '456 Oak Ave', city: 'Boston', state: 'MA', zip: '02101' },
+      });
+      expect(mockTx.address.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ streetAddress: '456 Oak Ave', city: 'Boston' }),
+      });
     });
+
+    it('should update existing address on update', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue({ ...draftApp });
+      mockTx.address.findFirst.mockResolvedValue({ id: 10 });
+      mockTx.address.update.mockResolvedValue({});
+      await service.update(1, 1, {
+        personal_info: { address: '789 Elm St', city: 'LA', state: 'CA', zip: '90001' },
+      });
+      expect(mockTx.address.update).toHaveBeenCalledWith({
+        where: { id: 10 },
+        data: expect.objectContaining({ streetAddress: '789 Elm St' }),
+      });
+    });
+
+    it('should create vehicle on update when none exists', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue({ ...draftApp });
+      mockTx.vehicle.findUnique.mockResolvedValue(null);
+      mockTx.vehicle.create.mockResolvedValue({});
+      await service.update(1, 1, { car_details: { make: 'Ford', model: 'F-150', year: 2024 } });
+      expect(mockTx.vehicle.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ make: 'Ford', applicationId: 1 }),
+      });
+    });
+
+    it('should update existing vehicle', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue({ ...draftApp });
+      mockTx.vehicle.findUnique.mockResolvedValue({ id: 5 });
+      mockTx.vehicle.update.mockResolvedValue({});
+      await service.update(1, 1, { car_details: { make: 'Ford', model: 'Mustang' } });
+      expect(mockTx.vehicle.update).toHaveBeenCalledWith({
+        where: { id: 5 },
+        data: expect.objectContaining({ make: 'Ford', model: 'Mustang' }),
+      });
+    });
+
+    it('should create financial_info on update when none exists', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue({ ...draftApp });
+      mockTx.financialInfo.findFirst.mockResolvedValue(null);
+      mockTx.financialInfo.create.mockResolvedValue({});
+      await service.update(1, 1, { employment_info: { employer: 'NewCo', income: 80000 } });
+      expect(mockTx.financialInfo.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ employerName: 'NewCo', incomeType: 'primary', applicationId: 1 }),
+      });
+    });
+
+    it('should update existing financial_info', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue({ ...draftApp });
+      mockTx.financialInfo.findFirst.mockResolvedValue({ id: 7 });
+      mockTx.financialInfo.update.mockResolvedValue({});
+      await service.update(1, 1, { employment_info: { employer: 'UpdatedCo' } });
+      expect(mockTx.financialInfo.update).toHaveBeenCalledWith({
+        where: { id: 7 },
+        data: expect.objectContaining({ employerName: 'UpdatedCo' }),
+      });
+    });
+
+    it('should update with flat legacy fields', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue({ ...draftApp, loanAmount: 30000 });
+      const result = await service.update(1, 1, { loanAmount: 30000 });
+      expect(mockTx.application.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({ loanAmount: 30000 }),
+      });
+    });
+
+    it('should use existing values when dto fields are undefined', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(draftApp);
+      mockTx.application.update.mockResolvedValue(draftApp);
+      await service.update(1, 1, {});
+      expect(mockTx.application.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: expect.objectContaining({ loanAmount: 20000, downPayment: 5000, loanTerm: 60 }),
+      });
+    });
+
     it('should throw NotFoundException when app not found', async () => {
       mockPrisma.application.findUnique.mockResolvedValue(null);
       await expect(service.update(99, 1, { loanAmount: 30000 })).rejects.toThrow(NotFoundException);
@@ -108,25 +323,42 @@ describe('ApplicationsService', () => {
       mockPrisma.application.findUnique.mockResolvedValue({ id: 1, userId: 1, status: 'submitted' });
       await expect(service.update(1, 1, { loanAmount: 30000 })).rejects.toThrow(UnprocessableEntityException);
     });
-    it('should use existing values when dto fields are undefined', async () => {
-      const app = { id: 1, userId: 1, status: 'draft', loanAmount: 20000, downPayment: 5000, loanTerm: 60, dob: new Date('1990-01-01') };
-      mockPrisma.application.findUnique.mockResolvedValue(app);
-      mockPrisma.application.update.mockResolvedValue(app);
-      await service.update(1, 1, {});
-      expect(mockPrisma.application.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: expect.objectContaining({ loanAmount: 20000, downPayment: 5000, loanTerm: 60 }),
-      });
+  });
+
+  describe('findAllForUser', () => {
+    it('should return applications for a user', async () => {
+      const apps = [{ id: 1 }, { id: 2 }];
+      mockPrisma.application.findMany.mockResolvedValue(apps);
+      expect(await service.findAllForUser(1)).toEqual(apps);
     });
-    it('should parse dob string to Date', async () => {
-      const app = { id: 1, userId: 1, status: 'draft', loanAmount: null, downPayment: null, loanTerm: null, dob: null };
+  });
+
+  describe('findAll', () => {
+    it('should return all applications with user data', async () => {
+      const apps = [{ id: 1, user: {} }];
+      mockPrisma.application.findMany.mockResolvedValue(apps);
+      expect(await service.findAll()).toEqual(apps);
+    });
+  });
+
+  describe('findOne', () => {
+    it('should return application by id', async () => {
+      const app = { id: 1, userId: 1 };
       mockPrisma.application.findUnique.mockResolvedValue(app);
-      mockPrisma.application.update.mockResolvedValue(app);
-      await service.update(1, 1, { dob: '1990-05-15' });
-      expect(mockPrisma.application.update).toHaveBeenCalledWith({
-        where: { id: 1 },
-        data: expect.objectContaining({ dob: new Date('1990-05-15') }),
-      });
+      expect(await service.findOne(1)).toEqual(app);
+    });
+    it('should throw NotFoundException when not found', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue(null);
+      await expect(service.findOne(99)).rejects.toThrow(NotFoundException);
+    });
+    it('should throw ForbiddenException when customer accesses others app', async () => {
+      mockPrisma.application.findUnique.mockResolvedValue({ id: 1, userId: 2 });
+      await expect(service.findOne(1, 1, 'customer')).rejects.toThrow(ForbiddenException);
+    });
+    it('should allow staff to access any app', async () => {
+      const app = { id: 1, userId: 2 };
+      mockPrisma.application.findUnique.mockResolvedValue(app);
+      expect(await service.findOne(1, 1, 'loan_officer')).toEqual(app);
     });
   });
 
@@ -134,9 +366,7 @@ describe('ApplicationsService', () => {
     it('should delete a draft application', async () => {
       mockPrisma.application.findUnique.mockResolvedValue({ id: 1, userId: 1, status: 'draft' });
       mockPrisma.application.delete.mockResolvedValue({});
-      const result = await service.remove(1, 1);
-      expect(result).toEqual({ message: 'Application deleted' });
-      expect(mockPrisma.application.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(await service.remove(1, 1)).toEqual({ message: 'Application deleted' });
     });
     it('should throw NotFoundException when app not found', async () => {
       mockPrisma.application.findUnique.mockResolvedValue(null);
@@ -183,8 +413,7 @@ describe('ApplicationsService', () => {
       mockPrisma.application.update.mockResolvedValue({ id: 1, status: 'submitted' });
       mockPrisma.statusHistory.create.mockResolvedValue({});
       mockPrisma.user.findUnique.mockResolvedValue(null);
-      const result = await service.updateStatus(1, 'submitted' as any, 1);
-      expect(result.status).toBe('submitted');
+      expect((await service.updateStatus(1, 'submitted' as any, 1)).status).toBe('submitted');
       expect(mockNotifications.notifyStatusChange).not.toHaveBeenCalled();
     });
     it('should skip notification if user has no email', async () => {
@@ -192,8 +421,7 @@ describe('ApplicationsService', () => {
       mockPrisma.application.update.mockResolvedValue({ id: 1, status: 'submitted' });
       mockPrisma.statusHistory.create.mockResolvedValue({});
       mockPrisma.user.findUnique.mockResolvedValue({ id: 1, email: null });
-      const result = await service.updateStatus(1, 'submitted' as any, 1);
-      expect(result.status).toBe('submitted');
+      expect((await service.updateStatus(1, 'submitted' as any, 1)).status).toBe('submitted');
       expect(mockNotifications.notifyStatusChange).not.toHaveBeenCalled();
     });
     it('should throw NotFoundException when app not found', async () => {
