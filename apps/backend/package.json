@@ -115,5 +115,8 @@
     "transformIgnorePatterns": [
       "/node_modules/(?!uuid)"
     ]
+  },
+  "prisma": {
+    "seed": "npx ts-node prisma/seed.ts"
   }
 }
