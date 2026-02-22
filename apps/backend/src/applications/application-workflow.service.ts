@@ -1,7 +1,7 @@
 // apps/backend/src/applications/application-workflow.service.ts
 import { Injectable, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus } from './application-status.type';
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   draft: ['submitted'],
@@ -33,7 +33,7 @@ export class ApplicationWorkflowService {
     this.validateTransition(app.status, 'submitted', ['draft']);
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
-      data: { status: ApplicationStatus.submitted, submittedAt: new Date() },
+      data: { status: 'submitted', submittedAt: new Date() },
     });
     await this.createHistory(applicationId, userId, app.status, 'submitted');
     return updated;
@@ -44,7 +44,7 @@ export class ApplicationWorkflowService {
     this.validateTransition(app.status, 'under_review', ['submitted']);
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
-      data: { status: ApplicationStatus.under_review },
+      data: { status: 'under_review' },
     });
     await this.createHistory(applicationId, userId, app.status, 'under_review');
     return updated;
@@ -55,7 +55,7 @@ export class ApplicationWorkflowService {
     this.validateTransition(app.status, 'under_review', ['submitted', 'pending_documents']);
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
-      data: { status: ApplicationStatus.under_review },
+      data: { status: 'under_review' },
     });
     await this.createHistory(applicationId, userId, app.status, 'under_review');
     return updated;
@@ -66,7 +66,7 @@ export class ApplicationWorkflowService {
     this.validateTransition(app.status, 'pending_documents', ['submitted', 'under_review']);
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
-      data: { status: ApplicationStatus.pending_documents },
+      data: { status: 'pending_documents' },
     });
     await this.createHistory(applicationId, userId, app.status, 'pending_documents');
     return updated;
@@ -82,7 +82,7 @@ export class ApplicationWorkflowService {
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
-        status: ApplicationStatus.approved,
+        status: 'approved',
         loanTerm: data.loanTerm ?? app.loanTerm,
         interestRate: data.interestRate ?? app.interestRate,
         monthlyPayment: data.monthlyPayment ?? app.monthlyPayment,
@@ -99,7 +99,7 @@ export class ApplicationWorkflowService {
     const updated = await this.prisma.application.update({
       where: { id: applicationId },
       data: {
-        status: ApplicationStatus.rejected,
+        status: 'rejected',
         rejectionReason: reason,
         decidedAt: new Date(),
       },
@@ -110,7 +110,7 @@ export class ApplicationWorkflowService {
 
   async sign(applicationId: number, userId: number, signatureData: string) {
     const app = await this.prisma.application.findUniqueOrThrow({ where: { id: applicationId } });
-    if (app.status !== ApplicationStatus.approved) {
+    if (app.status !== 'approved') {
       throw new UnprocessableEntityException('Application must be approved before signing');
     }
     if (app.signedAt) {
