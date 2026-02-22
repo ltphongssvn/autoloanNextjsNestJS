@@ -13,7 +13,7 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - run: npm ci --loglevel=error
       - run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
       - run: cd apps/backend && npx tsc --noEmit
       - run: cd apps/backend && npx jest --coverage
@@ -26,7 +26,8 @@ jobs:
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - run: npm ci --loglevel=error
+      - run: cd apps/frontend && npx next telemetry disable
       - run: cd apps/frontend && npx eslint --max-warnings=0 src/
       - run: cd apps/frontend && npx vitest run --coverage
       - run: cd apps/frontend && npx next build
@@ -51,13 +52,14 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/autoloan_test  # pragma: allowlist secret
       JWT_SECRET: test-secret-for-ci  # pragma: allowlist secret
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
+      NEXT_TELEMETRY_DISABLED: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-      - run: npm ci
+      - run: npm ci --loglevel=error
       - run: npx prisma generate --schema=apps/backend/prisma/schema.prisma
       - run: npx prisma migrate deploy --schema=apps/backend/prisma/schema.prisma
       - run: cd apps/backend && npx prisma db seed
