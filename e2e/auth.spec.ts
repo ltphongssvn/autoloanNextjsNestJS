@@ -25,7 +25,7 @@ test.describe('Authentication', () => {
     await page.getByLabel('Email').fill('invalid@test.com');
     await page.getByLabel('Password').fill('wrongpassword');
     await page.getByRole('button', { name: 'Log In' }).click();
-    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.locator('.bg-red-50[role="alert"]')).toBeVisible();
   });
   test('should login with valid credentials and redirect to dashboard', async ({ page }) => {
     await page.goto('/login');
