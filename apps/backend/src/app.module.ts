@@ -1,5 +1,5 @@
 // apps/backend/src/app.module.ts
-import { Module } from '@nestjs/common';
+import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { CustomThrottlerGuard } from './throttler.guard';
@@ -12,6 +12,7 @@ import { DocumentsModule } from './documents';
 import { NotesModule } from './notes';
 import { UsersModule } from './users';
 import { NotificationsModule } from './notifications';
+import { SecurityHeadersMiddleware } from './security-headers.middleware';
 
 @Module({
   imports: [
@@ -39,4 +40,8 @@ import { NotificationsModule } from './notifications';
   ],
   exports: [PrismaService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SecurityHeadersMiddleware).forRoutes('*');
+  }
+}

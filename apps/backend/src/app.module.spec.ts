@@ -36,4 +36,12 @@ describe('AppModule', () => {
     const prisma = module.get<PrismaService>(PrismaService);
     expect(prisma).toBeDefined();
   });
+
+  it('should configure SecurityHeadersMiddleware', () => {
+    const appModule = new AppModule();
+    const mockApply = jest.fn().mockReturnValue({ forRoutes: jest.fn() });
+    const mockConsumer = { apply: mockApply } as any;
+    appModule.configure(mockConsumer);
+    expect(mockApply).toHaveBeenCalled();
+  });
 });
