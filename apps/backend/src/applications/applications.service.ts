@@ -2,7 +2,7 @@
 import { Injectable, NotFoundException, ForbiddenException, UnprocessableEntityException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
 import { CreateApplicationDto } from './create-application.dto';
-import { ApplicationStatus } from '@prisma/client';
+import { ApplicationStatus } from './application-status.type';
 import { NotificationsService } from '../notifications';
 
 export interface ApplicationQuery {
