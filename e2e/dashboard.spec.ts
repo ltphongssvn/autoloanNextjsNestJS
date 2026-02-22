@@ -28,18 +28,18 @@ test.describe('Dashboard', () => {
     await login(page);
     await page.goto('/dashboard/applications/new');
     await expect(page.getByTestId('step-personal')).toBeVisible();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByTestId('step-personal').getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('step-vehicle')).toBeVisible();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByTestId('step-vehicle').getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('step-employment')).toBeVisible();
-    await page.getByRole('button', { name: 'Next' }).click();
+    await page.getByTestId('step-employment').getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('step-loan')).toBeVisible();
-    await page.getByRole('button', { name: 'Back' }).click();
+    await page.getByTestId('step-loan').getByRole('button', { name: 'Back' }).click();
     await expect(page.getByTestId('step-employment')).toBeVisible();
   });
   test('should access profile page', async ({ page }) => {
     await login(page);
-    await page.getByText('Profile').click();
+    await page.getByRole('link', { name: 'Profile' }).click();
     await expect(page.getByRole('heading', { name: 'My Profile' })).toBeVisible();
     await expect(page.getByLabel('First Name')).toBeVisible();
   });
