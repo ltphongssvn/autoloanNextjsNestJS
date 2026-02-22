@@ -15,6 +15,8 @@ jobs:
           cache: npm
       - run: npm ci --loglevel=error
       - run: cd apps/backend && npx prisma generate
+        env:
+          PRISMA_DISABLE_WARNINGS: 1
       - run: cd apps/backend && npx tsc --noEmit
       - run: cd apps/backend && npx jest --coverage
       - run: cd apps/backend && npx nest build
@@ -58,6 +60,7 @@ jobs:
       JWT_SECRET: test-secret-for-ci  # pragma: allowlist secret
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
       NEXT_TELEMETRY_DISABLED: 1
+      PRISMA_DISABLE_WARNINGS: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
