@@ -27,6 +27,15 @@ export class ApiKeysService {
     return keys;
   }
 
+  async findOne(userId: number, keyId: number) {
+    const apiKey = await this.prisma.apiKey.findFirst({
+      where: { id: keyId, userId },
+      select: { id: true, name: true, active: true, expiresAt: true, lastUsedAt: true, createdAt: true },
+    });
+    if (!apiKey) throw new NotFoundException('API key not found');
+    return apiKey;
+  }
+
   async create(userId: number, name: string, expiresAt?: Date) {
     const plainKey = this.generateKey();
     const keyDigest = this.digest(plainKey);

@@ -13,6 +13,11 @@ export class ApiKeysController {
     return this.apiKeysService.list(req.user.sub);
   }
 
+  @Get(':id')
+  findOne(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.apiKeysService.findOne(req.user.sub, id);
+  }
+
   @Post()
   create(@Request() req: any, @Body() body: { name: string; expires_at?: string }) {
     const expiresAt = body.expires_at ? new Date(body.expires_at) : undefined;
