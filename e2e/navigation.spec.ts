@@ -2,9 +2,9 @@ import { test, expect } from '@playwright/test';
 test.describe('Navigation', () => {
   test('should show public nav when not logged in', async ({ page }) => {
     await page.goto('/');
-    await expect(page.getByText('AutoLoan')).toBeVisible();
-    await expect(page.getByText('Sign In')).toBeVisible();
-    await expect(page.getByText('Create Account')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'AutoLoan' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sign In' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Create Account' })).toBeVisible();
   });
   test('should redirect to login when accessing dashboard unauthenticated', async ({ page }) => {
     await page.goto('/dashboard');
@@ -16,8 +16,8 @@ test.describe('Navigation', () => {
     await page.getByLabel('Password').fill('password123');
     await page.getByRole('button', { name: 'Log In' }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
-    await expect(page.getByText('Dashboard')).toBeVisible();
-    await expect(page.getByText('Profile')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Profile' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Logout' })).toBeVisible();
   });
 });
