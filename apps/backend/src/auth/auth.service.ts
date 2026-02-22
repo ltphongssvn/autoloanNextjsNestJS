@@ -1,9 +1,11 @@
 // apps/backend/src/auth/auth.service.ts
-import { Injectable, UnauthorizedException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
+
+const MAX_FAILED_ATTEMPTS = 5;
 
 interface LoginDto {
   email: string;
@@ -48,9 +50,27 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    if (user.lockedAt) {
+      throw new ForbiddenException('Account is locked. Please check your email for unlock instructions.');
+    }
     const valid = await bcrypt.compare(dto.password, user.encryptedPassword);
     if (!valid) {
+      const attempts = user.failedAttempts + 1;
+      const lockData: any = { failedAttempts: attempts };
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        lockData.lockedAt = new Date();
+        lockData.unlockToken = uuidv4();
+        // In production, send unlock email
+      }
+      await this.prisma.user.update({ where: { id: user.id }, data: lockData });
+      if (attempts >= MAX_FAILED_ATTEMPTS) {
+        throw new ForbiddenException('Account is locked. Please check your email for unlock instructions.');
+      }
       throw new UnauthorizedException('Invalid credentials');
+    }
+    // Reset failed attempts on successful login
+    if (user.failedAttempts > 0) {
+      await this.prisma.user.update({ where: { id: user.id }, data: { failedAttempts: 0 } });
     }
     return { token: this.generateToken(user), user: this.formatUser(user) };
   }
@@ -73,7 +93,6 @@ export class AuthService {
         confirmationSentAt: new Date(),
       },
     });
-    // In production, send confirmation email with token
     return { token: this.generateToken(user), user: this.formatUser(user), confirmation_token: confirmationToken };
   }
 
@@ -87,10 +106,7 @@ export class AuthService {
     }
     await this.prisma.user.update({
       where: { id: user.id },
-      data: {
-        confirmedAt: new Date(),
-        confirmationToken: null,
-      },
+      data: { confirmedAt: new Date(), confirmationToken: null },
     });
     return { message: 'Email confirmed successfully' };
   }
@@ -106,13 +122,38 @@ export class AuthService {
     const confirmationToken = uuidv4();
     await this.prisma.user.update({
       where: { id: user.id },
-      data: {
-        confirmationToken,
-        confirmationSentAt: new Date(),
-      },
+      data: { confirmationToken, confirmationSentAt: new Date() },
     });
-    // In production, send confirmation email
     return { message: 'If the email exists, a confirmation link has been sent', confirmation_token: confirmationToken };
+  }
+
+  async unlockAccount(token: string) {
+    const user = await this.prisma.user.findFirst({ where: { unlockToken: token } });
+    if (!user) {
+      throw new NotFoundException('Invalid unlock token');
+    }
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { lockedAt: null, unlockToken: null, failedAttempts: 0 },
+    });
+    return { message: 'Account unlocked successfully' };
+  }
+
+  async resendUnlock(email: string) {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return { message: 'If the account exists and is locked, unlock instructions have been sent' };
+    }
+    if (!user.lockedAt) {
+      return { message: 'Account is not locked' };
+    }
+    const unlockToken = uuidv4();
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { unlockToken },
+    });
+    // In production, send unlock email
+    return { message: 'If the account exists and is locked, unlock instructions have been sent', unlock_token: unlockToken };
   }
 
   async logout(jti: string) {

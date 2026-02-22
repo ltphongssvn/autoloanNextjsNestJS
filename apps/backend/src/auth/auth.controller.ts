@@ -31,6 +31,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Login with email and password' })
   @ApiResponse({ status: 200, description: 'JWT token returned' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  @ApiResponse({ status: 403, description: 'Account locked' })
   login(@Body() body: { email: string; password: string }) {
     return this.authService.login(body);
   }
@@ -73,6 +74,21 @@ export class AuthController {
   resendConfirmation(@Body() body: { email?: string; user?: { email: string } }) {
     const email = body.email || body.user?.email || '';
     return this.authService.resendConfirmation(email);
+  }
+
+  @Get('unlock')
+  @ApiOperation({ summary: 'Unlock account with token (Devise-compatible)' })
+  @ApiResponse({ status: 200, description: 'Account unlocked' })
+  unlockAccount(@Query('unlock_token') token: string) {
+    return this.authService.unlockAccount(token);
+  }
+
+  @Post('unlock')
+  @ApiOperation({ summary: 'Resend unlock instructions (Devise-compatible)' })
+  @ApiResponse({ status: 200, description: 'Unlock instructions sent' })
+  resendUnlock(@Body() body: { email?: string; user?: { email: string } }) {
+    const email = body.email || body.user?.email || '';
+    return this.authService.resendUnlock(email);
   }
 
   @Post('password')
