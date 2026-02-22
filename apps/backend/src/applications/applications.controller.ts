@@ -12,10 +12,12 @@ import { Roles } from '../auth/roles.decorator';
 import { JwtPayload } from '../auth/jwt.strategy';
 import { CreateApplicationDto } from './create-application.dto';
 import { serializeApplication } from './application.serializer';
+import { paginationMetadata } from './pagination.helper';
 import { Response } from 'express';
 
 interface AuthenticatedRequest {
   user: JwtPayload;
+  path?: string;
 }
 
 @ApiTags('Applications')
@@ -59,9 +61,10 @@ export class ApplicationsController {
       ? await this.applicationsService.findAll(query)
       : await this.applicationsService.findAllForUser(sub, query);
 
+    const basePath = req.path || '/api/v1/applications';
     return {
       data: result.data.map((app: any) => serializeApplication(app, { currentUserId: sub })),
-      pagination: result.pagination,
+      pagination: paginationMetadata(result.pagination.page, result.pagination.per_page, result.pagination.total, basePath),
     };
   }
 
