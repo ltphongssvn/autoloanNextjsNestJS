@@ -15,6 +15,19 @@ const statusColors: Record<string, string> = {
   rejected: 'bg-red-100 text-red-700',
 };
 
+function extractApplications(res: Record<string, unknown>): Application[] {
+  // Handle envelope: { status, data: { data: [...], pagination } }
+  // Handle flat: { data: [...], pagination }
+  // Handle bare array: [...]
+  if (Array.isArray(res)) return res;
+  const inner = res.data as Record<string, unknown> | unknown[];
+  if (Array.isArray(inner)) return inner as Application[];
+  if (inner && typeof inner === 'object' && 'data' in inner && Array.isArray((inner as Record<string, unknown>).data)) {
+    return (inner as Record<string, unknown>).data as Application[];
+  }
+  return [];
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const [applications, setApplications] = useState<Application[]>([]);
@@ -25,7 +38,7 @@ export default function DashboardPage() {
     async function fetchApplications() {
       try {
         const res = await api.applications.list();
-        setApplications(Array.isArray(res) ? res : res.data ?? []);
+        setApplications(extractApplications(res));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load applications');
       } finally {
