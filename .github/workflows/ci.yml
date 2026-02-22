@@ -14,9 +14,7 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --loglevel=error
-      - run: cd apps/backend && npx prisma generate
-        env:
-          PRISMA_DISABLE_WARNINGS: 1
+      - run: cd apps/backend && npx prisma generate 2>&1 | grep -v "deprecated"
       - run: cd apps/backend && npx tsc --noEmit
       - run: cd apps/backend && npx jest --coverage
       - run: cd apps/backend && npx nest build
@@ -60,7 +58,6 @@ jobs:
       JWT_SECRET: test-secret-for-ci  # pragma: allowlist secret
       NEXT_PUBLIC_API_URL: http://localhost:3001/api/v1
       NEXT_TELEMETRY_DISABLED: 1
-      PRISMA_DISABLE_WARNINGS: 1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -68,9 +65,9 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci --loglevel=error
-      - run: cd apps/backend && npx prisma generate
-      - run: cd apps/backend && npx prisma migrate deploy
-      - run: cd apps/backend && npx prisma db seed
+      - run: cd apps/backend && npx prisma generate 2>&1 | grep -v "deprecated"
+      - run: cd apps/backend && npx prisma migrate deploy 2>&1 | grep -v "deprecated"
+      - run: cd apps/backend && npx prisma db seed 2>&1 | grep -v "deprecated"
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test
       - uses: actions/upload-artifact@v4
