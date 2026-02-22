@@ -46,9 +46,16 @@ describe('ApiKeysController', () => {
     expect(mockService.create).toHaveBeenCalledWith(1, 'test', expect.any(Date));
   });
 
-  it('should revoke a key', async () => {
+  it('should revoke via POST', async () => {
     mockService.revoke.mockResolvedValue({ id: 1, active: false });
-    const result = await controller.revoke(req, 1);
+    const result = await controller.revokePost(req, 1);
+    expect(mockService.revoke).toHaveBeenCalledWith(1, 1);
+    expect(result.active).toBe(false);
+  });
+
+  it('should revoke via PATCH', async () => {
+    mockService.revoke.mockResolvedValue({ id: 1, active: false });
+    const result = await controller.revokePatch(req, 1);
     expect(mockService.revoke).toHaveBeenCalledWith(1, 1);
     expect(result.active).toBe(false);
   });

@@ -24,8 +24,13 @@ export class ApiKeysController {
     return this.apiKeysService.create(req.user.sub, body.name, expiresAt);
   }
 
+  @Post(':id/revoke')
+  revokePost(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.apiKeysService.revoke(req.user.sub, id);
+  }
+
   @Patch(':id/revoke')
-  revoke(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+  revokePatch(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
     return this.apiKeysService.revoke(req.user.sub, id);
   }
 
