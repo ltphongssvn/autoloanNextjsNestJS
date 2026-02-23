@@ -31,7 +31,7 @@ function extractApplications(res: Record<string, unknown>): Application[] {
 }
 
 function getAppId(app: Application) {
-  return (app as unknown as Record<string, unknown>).application_number || `#APP-${String(app.id).padStart(4, '0')}`;
+  return String((app as unknown as Record<string, unknown>).application_number || `#APP-${String(app.id).padStart(4, '0')}`);
 }
 function getVehicleInfo(app: Application) {
   const car = ((app as unknown as Record<string, unknown>).car_details as Record<string, string>) || {};
