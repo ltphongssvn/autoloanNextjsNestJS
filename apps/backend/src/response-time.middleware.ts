@@ -6,9 +6,12 @@ import { Request, Response, NextFunction } from 'express';
 export class ResponseTimeMiddleware implements NestMiddleware {
   use(req: Request, res: Response, next: NextFunction) {
     const start = process.hrtime.bigint();
-    res.on('finish', () => {
-      res.setHeader('X-Response-Time', `${(Number(process.hrtime.bigint() - start) / 1e6).toFixed(2)}ms`);
-    });
+    const originalWriteHead = res.writeHead;
+    (res as any).writeHead = function (...args: any[]) {
+      const duration = Number(process.hrtime.bigint() - start) / 1e6;
+      res.setHeader('X-Response-Time', `${duration.toFixed(2)}ms`);
+      return (originalWriteHead as any).apply(this, args);
+    };
     next();
   }
 }
