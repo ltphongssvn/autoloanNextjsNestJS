@@ -209,4 +209,43 @@ describe('LoanAgreementPage', () => {
     fireEvent.click(screen.getByText('I have read and agree to the loan terms'));
     expect(screen.getByTestId('sign-btn')).toBeDisabled();
   });
+
+  it('handles non-Error load failure', async () => {
+    mockGet.mockRejectedValue('string error');
+    render(<LoanAgreementPage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to load'));
+  });
+
+  it('does not draw when not mouseDown', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    render(<LoanAgreementPage />);
+    await waitFor(() => expect(screen.getByTestId('signature-section')).toBeInTheDocument());
+    const canvas = document.querySelector('canvas')!;
+    fireEvent.mouseMove(canvas, { clientX: 20, clientY: 20 });
+    expect(mockCtx.lineTo).not.toHaveBeenCalled();
+  });
+
+  it('handles sign without conditions being met (no-op)', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    render(<LoanAgreementPage />);
+    await waitFor(() => expect(screen.getByTestId('sign-btn')).toBeDisabled());
+  });
+
+  it('renders with missing loan/personal/car data', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, personal_info: null, car_details: null, loan_amount: 0, down_payment: 0, loan_term: null, monthly_payment: null });
+    render(<LoanAgreementPage />);
+    await waitFor(() => expect(screen.getByTestId('agreement-section')).toBeInTheDocument());
+    expect(screen.getByText('N/A')).toBeInTheDocument();
+  });
+
+  it('download success on signed page', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, signed_at: '2024-02-01T00:00:00Z' });
+    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
+    mockAgreementPdf.mockResolvedValue(mockBlob);
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:test');
+    globalThis.URL.revokeObjectURL = vi.fn();
+    render(<LoanAgreementPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Download PDF')));
+    await waitFor(() => expect(globalThis.URL.revokeObjectURL).toHaveBeenCalled());
+  });
 });
