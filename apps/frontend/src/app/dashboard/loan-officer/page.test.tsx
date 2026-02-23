@@ -113,7 +113,7 @@ describe('LoanOfficerDashboard', () => {
   });
 
   it('renders pagination for many apps', async () => {
-    const many = Array.from({ length: 15 }, (_, i) => ({ ...apps[0], id: i + 1, application_number: `APP-${String(i).padStart(4,'0')}` }));
+    const many = Array.from({ length: 15 }, (_, i) => ({ ...apps[0], id: i + 1, status: i < 10 ? 'submitted' : 'under_review', application_number: `APP-${String(i).padStart(4,'0')}` }));
     mockList.mockResolvedValue(many);
     render(<LoanOfficerDashboard />);
     await waitFor(() => expect(screen.getByTestId('pagination')).toBeInTheDocument());
@@ -125,5 +125,33 @@ describe('LoanOfficerDashboard', () => {
     mockList.mockResolvedValue([{ ...apps[0], personal_info: null }]);
     render(<LoanOfficerDashboard />);
     await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(1));
+  });
+
+  it('fallback app number when missing', async () => {
+    mockList.mockResolvedValue([{ ...apps[0], application_number: undefined }]);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByText('APP-0001')).toBeInTheDocument());
+  });
+
+  it('renders with missing loan_details', async () => {
+    mockList.mockResolvedValue([{ ...apps[0], loan_details: null, loan_amount: 20000 }]);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(1));
+  });
+
+  it('renders default status color for unknown status', async () => {
+    mockList.mockResolvedValue([{ ...apps[0], status: 'unknown_status' }]);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByText('unknown status')).toBeInTheDocument());
+  });
+
+  it('resets page on filter change', async () => {
+    const many = Array.from({ length: 15 }, (_, i) => ({ ...apps[0], id: i + 1, status: i < 10 ? 'submitted' : 'under_review', application_number: `APP-${String(i).padStart(4,'0')}` }));
+    mockList.mockResolvedValue(many);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByTestId('pagination')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('2'));
+    fireEvent.click(screen.getByText('New'));
+    expect(screen.queryByTestId('pagination')).not.toBeInTheDocument();
   });
 });
