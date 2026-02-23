@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../../../services/api';
 
@@ -35,6 +35,14 @@ function calculatePayment(principal: number, term: number, apr: number) {
 }
 
 export default function NewApplicationPage() {
+  return (
+    <Suspense fallback={<div role="status" className="p-8 text-center text-gray-500">Loading...</div>}>
+      <NewApplicationForm />
+    </Suspense>
+  );
+}
+
+function NewApplicationForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const editId = searchParams.get('edit');
