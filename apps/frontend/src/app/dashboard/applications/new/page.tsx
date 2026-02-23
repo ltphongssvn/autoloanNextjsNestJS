@@ -57,8 +57,8 @@ export default function NewApplicationPage() {
   const monthlyPayment = calculatePayment(principal, selectedTerm, termData.apr);
   const dti = totalIncome > 0 ? Math.round((monthlyPayment / totalIncome) * 100) : 0;
 
-  const updateField = <T extends Record<string, string>>(setter: React.Dispatch<React.SetStateAction<T>>, field: string) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setter((prev) => ({ ...prev, [field]: e.target.value }));
+  const updateField = <T,>(setter: React.Dispatch<React.SetStateAction<T>>, field: keyof T) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setter((prev) => ({ ...prev, [field]: e.target.value } as T));
 
   const next = () => { setError(''); setStep((s) => Math.min(s + 1, 5)); };
   const back = () => { setError(''); setStep((s) => Math.max(s - 1, 1)); };
