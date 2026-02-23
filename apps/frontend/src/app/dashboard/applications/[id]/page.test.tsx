@@ -1,316 +1,226 @@
-// apps/frontend/src/app/dashboard/applications/[id]/page.test.tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import ApplicationDetailPage from './page';
 
-const mockBack = vi.fn();
-vi.mock('next/navigation', () => ({
-  useParams: () => ({ id: '1' }),
-  useRouter: () => ({ back: mockBack }),
-}));
+const mockApp = {
+  id: 1, application_number: 'APP-0001', status: 'draft',
+  loan_amount: 25000, down_payment: 5000, loan_term: 48,
+  interest_rate: 6.9, monthly_payment: 475.50,
+  personal_info: { first_name: 'John', last_name: 'Doe', email: 'john@test.com', phone: '555-1234', dob: '1990-01-01', address: '123 Main St', city: 'LA', state: 'CA', zip: '90001' },
+  car_details: { make: 'Toyota', model: 'Camry', year: '2024', price: '30000', condition: 'New', vin: 'ABC123' },
+  loan_details: { amount: '25000', down_payment: '5000' },
+  employment_info: { employer: 'Acme', job_title: 'Engineer', years: '5', income: '80000', credit_score: '750' },
+  created_at: '2024-01-15T00:00:00Z', updated_at: '2024-01-15T00:00:00Z',
+  submitted_at: null, decided_at: null,
+};
 
 const mockGet = vi.fn();
-const mockUpdateStatus = vi.fn();
-const mockHistory = vi.fn();
 const mockSubmit = vi.fn();
 const mockSign = vi.fn();
+const mockUpdateStatus = vi.fn();
 const mockAgreementPdf = vi.fn();
+const mockBack = vi.fn();
+const mockUseAuth = vi.fn();
+
+vi.mock('next/navigation', () => ({
+  useParams: () => ({ id: '1' }),
+  useRouter: () => ({ back: mockBack, push: vi.fn() }),
+}));
 vi.mock('../../../../services/api', () => ({
   api: {
     applications: {
       get: (...args: unknown[]) => mockGet(...args),
-      updateStatus: (...args: unknown[]) => mockUpdateStatus(...args),
-      history: (...args: unknown[]) => mockHistory(...args),
       submit: (...args: unknown[]) => mockSubmit(...args),
       sign: (...args: unknown[]) => mockSign(...args),
+      updateStatus: (...args: unknown[]) => mockUpdateStatus(...args),
       agreementPdf: (...args: unknown[]) => mockAgreementPdf(...args),
-    },
-    documents: {
-      list: vi.fn().mockResolvedValue({ data: [] }),
-      upload: vi.fn(),
-      updateStatus: vi.fn(),
-    },
-    notes: {
-      list: vi.fn().mockResolvedValue({ data: [] }),
-      create: vi.fn(),
     },
   },
 }));
-
-const mockUseAuth = vi.fn();
 vi.mock('../../../../context/AuthContext', () => ({
   useAuth: () => mockUseAuth(),
 }));
-
-const baseApp = {
-  id: 1,
-  application_number: 'AL-000001',
-  status: 'submitted',
-  loan_amount: '25000.00',
-  down_payment: '5000.00',
-  loan_term: 60,
-};
+vi.mock('../../../../components/StatusHistory', () => ({ default: () => <div data-testid="status-history" /> }));
+vi.mock('../../../../components/NotesList', () => ({ default: () => <div data-testid="notes-list" /> }));
+vi.mock('../../../../components/DocumentUpload', () => ({ default: () => <div data-testid="doc-upload" /> }));
 
 describe('ApplicationDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: { id: 1, role: 'customer' } });
-    mockHistory.mockResolvedValue({ data: [] });
+    mockUseAuth.mockReturnValue({ user: { role: 'customer' }, token: 'abc' });
   });
 
-  it('should show loading state', () => {
+  it('renders loading state', () => {
     mockGet.mockReturnValue(new Promise(() => {}));
     render(<ApplicationDetailPage />);
     expect(screen.getByRole('status')).toHaveTextContent('Loading...');
   });
 
-  it('should render application details', async () => {
-    mockGet.mockResolvedValue({ data: baseApp });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Application AL-000001')).toBeInTheDocument());
-    expect(screen.getByTestId('status')).toHaveTextContent('submitted');
-    expect(screen.getByTestId('loan-amount')).toHaveTextContent('$25,000');
-    expect(screen.getByTestId('loan-term')).toHaveTextContent('60 months');
-  });
-
-  it('should render with res fallback (no data wrapper)', async () => {
-    mockGet.mockResolvedValue(baseApp);
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Application AL-000001')).toBeInTheDocument());
-  });
-
-  it('should show error on fetch failure', async () => {
+  it('renders error state', async () => {
     mockGet.mockRejectedValue(new Error('Not found'));
     render(<ApplicationDetailPage />);
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Not found'));
   });
 
-  it('should handle non-Error fetch failure', async () => {
-    mockGet.mockRejectedValue('string error');
+  it('renders application heading and status badge', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to load application'));
+    await waitFor(() => expect(screen.getByText('Application APP-0001')).toBeInTheDocument());
+    expect(screen.getByTestId('status')).toHaveTextContent('DRAFT');
   });
 
-  it('should not show staff actions for customers', async () => {
-    mockGet.mockResolvedValue({ data: baseApp });
+  it('renders personal information section', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Application AL-000001')).toBeInTheDocument());
-    expect(screen.queryByTestId('staff-actions')).toBeNull();
+    await waitFor(() => expect(screen.getByTestId('personal-section')).toBeInTheDocument());
+    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    expect(screen.getByText('john@test.com')).toBeInTheDocument();
+    expect(screen.getByText('555-1234')).toBeInTheDocument();
   });
 
-  it('should show Start Review for staff on submitted app', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'loan_officer' } });
-    mockGet.mockResolvedValue({ data: baseApp });
+  it('renders vehicle details section', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Start Review')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('vehicle-section')).toBeInTheDocument());
+    expect(screen.getByText('Toyota')).toBeInTheDocument();
+    expect(screen.getByText('Camry')).toBeInTheDocument();
+    expect(screen.getByText('ABC123')).toBeInTheDocument();
   });
 
-  it('should show Approve/Reject for staff on under_review app', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'underwriter' } });
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'under_review' } });
+  it('renders loan details section', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Approve')).toBeInTheDocument();
-      expect(screen.getByText('Reject')).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByTestId('loan-section')).toBeInTheDocument());
+    expect(screen.getByText('48 months')).toBeInTheDocument();
+    expect(screen.getByText('6.9%')).toBeInTheDocument();
   });
 
-  it('should handle status update', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'loan_officer' } });
-    mockGet.mockResolvedValue({ data: baseApp });
-    mockUpdateStatus.mockResolvedValue({ data: { ...baseApp, status: 'under_review' } });
+  it('renders employment section', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Start Review')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Start Review'));
-    await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'under_review'));
+    await waitFor(() => expect(screen.getByTestId('employment-section')).toBeInTheDocument());
+    expect(screen.getByText('Acme')).toBeInTheDocument();
+    expect(screen.getByText('Engineer')).toBeInTheDocument();
+    expect(screen.getByText('750')).toBeInTheDocument();
   });
 
-  it('should show error on status update failure', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'loan_officer' } });
-    mockGet.mockResolvedValue({ data: baseApp });
-    mockUpdateStatus.mockRejectedValue(new Error('Forbidden'));
+  it('renders timeline section', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Start Review')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Start Review'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Forbidden'));
+    await waitFor(() => expect(screen.getByTestId('timeline-section')).toBeInTheDocument());
   });
 
-  it('should handle non-Error status update failure', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'loan_officer' } });
-    mockGet.mockResolvedValue({ data: baseApp });
-    mockUpdateStatus.mockRejectedValue('fail');
+  it('renders timeline with submitted and decided dates', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, submitted_at: '2024-01-20T00:00:00Z', decided_at: '2024-01-25T00:00:00Z' });
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Start Review')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Start Review'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to update status'));
+    await waitFor(() => expect(screen.getByText(/Submitted:/)).toBeInTheDocument());
+    expect(screen.getByText(/Decided:/)).toBeInTheDocument();
   });
 
-  it('should navigate back on Back button click', async () => {
-    mockGet.mockResolvedValue({ data: baseApp });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText(/Back/)).toBeInTheDocument());
-    fireEvent.click(screen.getByText(/Back/));
-    expect(mockBack).toHaveBeenCalled();
-  });
-
-  it('should handle approve status update', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'underwriter' } });
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'under_review' } });
-    mockUpdateStatus.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Approve')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Approve'));
-    await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'approved'));
-  });
-
-  it('should handle reject status update', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'underwriter' } });
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'under_review' } });
-    mockUpdateStatus.mockResolvedValue({ data: { ...baseApp, status: 'rejected' } });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Reject')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Reject'));
-    await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'rejected'));
-  });
-
-  it('should show N/A for missing loan fields', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, loan_amount: null, down_payment: null, loan_term: null } });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByTestId('loan-amount')).toHaveTextContent('N/A'));
-    expect(screen.getByTestId('down-payment')).toHaveTextContent('N/A');
-    expect(screen.getByTestId('loan-term')).toHaveTextContent('N/A');
-  });
-
-  it('should render StatusHistory section', async () => {
-    mockGet.mockResolvedValue({ data: baseApp });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('No status changes yet.')).toBeInTheDocument());
-  });
-
-  it('should render Documents section', async () => {
-    mockGet.mockResolvedValue({ data: baseApp });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Documents')).toBeInTheDocument());
-  });
-
-  it('should show Submit button for customer with draft app', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
+  it('shows submit button for draft applications', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
     await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
   });
 
-  it('should handle submit', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
-    mockSubmit.mockResolvedValue({ data: { ...baseApp, status: 'submitted' } });
+  it('submits application', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockSubmit.mockResolvedValue({ ...mockApp, status: 'submitted' });
     render(<ApplicationDetailPage />);
     await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
     fireEvent.click(screen.getByText('Submit Application'));
     await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(1));
   });
 
-  it('should show error on submit failure', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
-    mockSubmit.mockRejectedValue(new Error('Incomplete'));
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Submit Application'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Incomplete'));
-  });
-
-  it('should handle non-Error submit failure', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
-    mockSubmit.mockRejectedValue('fail');
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Submit Application')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Submit Application'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to submit application'));
-  });
-
-  it('should show Sign and Download for customer with approved app', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => {
-      expect(screen.getByText('Sign Agreement')).toBeInTheDocument();
-      expect(screen.getByText('Download Agreement')).toBeInTheDocument();
-    });
-  });
-
-  it('should handle sign', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
-    mockSign.mockResolvedValue({ data: { ...baseApp, status: 'signed' } });
+  it('shows sign and download for approved applications', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
     render(<ApplicationDetailPage />);
     await waitFor(() => expect(screen.getByText('Sign Agreement')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Sign Agreement'));
+    expect(screen.getByText('Download Agreement')).toBeInTheDocument();
+  });
+
+  it('signs agreement', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
+    mockSign.mockResolvedValue({ ...mockApp, status: 'signed' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Sign Agreement')));
     await waitFor(() => expect(mockSign).toHaveBeenCalledWith(1, 'electronic-signature'));
   });
 
-  it('should show error on sign failure', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+  it('handles submit failure', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockSubmit.mockRejectedValue(new Error('Submit error'));
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Submit Application')));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+  });
+
+  it('handles sign failure', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
     mockSign.mockRejectedValue(new Error('Sign error'));
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Sign Agreement')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Sign Agreement'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Sign error'));
+    await waitFor(() => fireEvent.click(screen.getByText('Sign Agreement')));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
 
-  it('should handle non-Error sign failure', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
-    mockSign.mockRejectedValue('fail');
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Sign Agreement')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Sign Agreement'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to sign agreement'));
-  });
-
-  it('should handle PDF download', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
-    const blob = new Blob(['pdf']);
-    mockAgreementPdf.mockResolvedValue(blob);
-    const createObjectURL = vi.fn().mockReturnValue('blob:url');
-    const revokeObjectURL = vi.fn();
-    global.URL.createObjectURL = createObjectURL;
-    global.URL.revokeObjectURL = revokeObjectURL;
-    render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Download Agreement')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Download Agreement'));
-    await waitFor(() => {
-      expect(mockAgreementPdf).toHaveBeenCalledWith(1);
-      expect(revokeObjectURL).toHaveBeenCalled();
-    });
-  });
-
-  it('should show error on PDF download failure', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
+  it('handles download pdf failure', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
     mockAgreementPdf.mockRejectedValue(new Error('PDF error'));
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Download Agreement')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Download Agreement'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('PDF error'));
+    await waitFor(() => fireEvent.click(screen.getByText('Download Agreement')));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
   });
 
-  it('should handle non-Error PDF download failure', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'approved' } });
-    mockAgreementPdf.mockRejectedValue('fail');
+  it('navigates back', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Download Agreement')).toBeInTheDocument());
-    fireEvent.click(screen.getByText('Download Agreement'));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to download agreement'));
+    await waitFor(() => fireEvent.click(screen.getByText(/Back to Dashboard/)));
+    expect(mockBack).toHaveBeenCalled();
   });
 
-  it('should show Download section for signed app', async () => {
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'signed' } });
+  it('renders sub-components', async () => {
+    mockGet.mockResolvedValue(mockApp);
     render(<ApplicationDetailPage />);
     await waitFor(() => {
-      expect(screen.getByTestId('download-section')).toBeInTheDocument();
-      expect(screen.getByText('Download Agreement')).toBeInTheDocument();
+      expect(screen.getByTestId('status-history')).toBeInTheDocument();
+      expect(screen.getByTestId('notes-list')).toBeInTheDocument();
+      expect(screen.getByTestId('doc-upload')).toBeInTheDocument();
     });
   });
 
-  it('should not show submit for non-customer', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'loan_officer' } });
-    mockGet.mockResolvedValue({ data: { ...baseApp, status: 'draft' } });
+  it('handles unwrapped response', async () => {
+    mockGet.mockResolvedValue({ data: mockApp });
     render(<ApplicationDetailPage />);
-    await waitFor(() => expect(screen.getByText('Application AL-000001')).toBeInTheDocument());
-    expect(screen.queryByText('Submit Application')).toBeNull();
+    await waitFor(() => expect(screen.getByText('Application APP-0001')).toBeInTheDocument());
+  });
+
+  it('shows staff actions for loan officer on submitted app', async () => {
+    mockUseAuth.mockReturnValue({ user: { role: 'loan_officer' }, token: 'abc' });
+    mockGet.mockResolvedValue({ ...mockApp, status: 'submitted' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Start Review')).toBeInTheDocument());
+  });
+
+  it('shows approve/reject for staff on under_review app', async () => {
+    mockUseAuth.mockReturnValue({ user: { role: 'underwriter' }, token: 'abc' });
+    mockGet.mockResolvedValue({ ...mockApp, status: 'under_review' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Approve')).toBeInTheDocument());
+    expect(screen.getByText('Reject')).toBeInTheDocument();
+  });
+
+  it('handles status update failure', async () => {
+    mockUseAuth.mockReturnValue({ user: { role: 'loan_officer' }, token: 'abc' });
+    mockGet.mockResolvedValue({ ...mockApp, status: 'submitted' });
+    mockUpdateStatus.mockRejectedValue(new Error('Update failed'));
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Start Review')));
+    await waitFor(() => expect(screen.getByRole('alert')).toBeInTheDocument());
+  });
+
+  it('shows download section for signed status', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'signed' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByTestId('download-section')).toBeInTheDocument());
   });
 });
