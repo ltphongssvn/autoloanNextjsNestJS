@@ -1,58 +1,129 @@
-import { render, screen, waitFor } from '@testing-library/react';
-import { vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import LoanOfficerDashboard from './page';
 
-vi.mock('../../../services/api', () => ({
-  api: {
-    loanOfficer: {
-      list: vi.fn(),
-    },
-  },
-}));
+const mockList = vi.fn();
+vi.mock('../../../services/api', () => ({ api: { loanOfficer: { list: (...a: unknown[]) => mockList(...a) } } }));
 
-import { api } from '../../../services/api';
-const mockList = vi.mocked(api.loanOfficer.list);
+const apps = [
+  { id: 1, application_number: 'APP-0001', status: 'submitted', loan_amount: 20000, created_at: new Date().toISOString(), personal_info: { first_name: 'John', last_name: 'Doe' }, loan_details: { amount: '20000' } },
+  { id: 2, application_number: 'APP-0002', status: 'under_review', loan_amount: 35000, created_at: new Date().toISOString(), personal_info: { first_name: 'Jane', last_name: 'Smith' }, loan_details: { amount: '35000' } },
+  { id: 3, application_number: 'APP-0003', status: 'pending', loan_amount: 15000, created_at: '2020-01-01T00:00:00Z', personal_info: { first_name: 'Bob', last_name: 'Lee' }, loan_details: { amount: '15000' } },
+];
 
 describe('LoanOfficerDashboard', () => {
-  it('should show loading state', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('shows loading', () => {
     mockList.mockReturnValue(new Promise(() => {}));
     render(<LoanOfficerDashboard />);
-    expect(screen.getByRole('status')).toHaveTextContent('Loading');
+    expect(screen.getByRole('status')).toHaveTextContent('Loading...');
   });
 
-  it('should show empty state', async () => {
+  it('shows error', async () => {
+    mockList.mockRejectedValue(new Error('Fail'));
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Fail'));
+  });
+
+  it('renders stats cards', async () => {
+    mockList.mockResolvedValue(apps);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByTestId('stats-cards')).toBeInTheDocument());
+    expect(screen.getByText('Pending Review')).toBeInTheDocument();
+    expect(screen.getByText('New Applications')).toBeInTheDocument();
+  });
+
+  it('renders table with all apps', async () => {
+    mockList.mockResolvedValue(apps);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(3));
+  });
+
+  it('filters by status tab', async () => {
+    mockList.mockResolvedValue(apps);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByTestId('status-tabs')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('New'));
+    expect(screen.getAllByTestId('app-row')).toHaveLength(1);
+  });
+
+  it('filters by date range', async () => {
+    mockList.mockResolvedValue(apps);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByTestId('filters')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Date range'), { target: { value: 'week' } });
+    expect(screen.getAllByTestId('app-row')).toHaveLength(2);
+  });
+
+  it('filters by search term', async () => {
+    mockList.mockResolvedValue(apps);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByTestId('filters')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'Jane' } });
+    expect(screen.getAllByTestId('app-row')).toHaveLength(1);
+  });
+
+  it('shows empty state when no matches', async () => {
+    mockList.mockResolvedValue(apps);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByTestId('filters')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'zzzzz' } });
+    expect(screen.getByTestId('empty-state')).toBeInTheDocument();
+  });
+
+  it('shows empty when no apps', async () => {
     mockList.mockResolvedValue([]);
     render(<LoanOfficerDashboard />);
     await waitFor(() => expect(screen.getByTestId('empty-state')).toBeInTheDocument());
   });
 
-  it('should show applications table', async () => {
-    mockList.mockResolvedValue([
-      { id: 1, application_number: 'AL-001', status: 'submitted', loan_amount: '25000', submitted_at: '2025-01-15', user: { first_name: 'John', last_name: 'Doe' } },
-    ]);
+  it('handles wrapped response', async () => {
+    mockList.mockResolvedValue({ data: apps });
     render(<LoanOfficerDashboard />);
-    await waitFor(() => expect(screen.getByTestId('applications-table')).toBeInTheDocument());
-    expect(screen.getByText('AL-001')).toBeInTheDocument();
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(3));
   });
 
-  it('should handle camelCase response', async () => {
-    mockList.mockResolvedValue([
-      { id: 2, applicationNumber: 'AL-002', status: 'under_review', loanAmount: 30000, submittedAt: '2025-02-01', user: { firstName: 'Jane', lastName: 'Smith' } },
-    ]);
+  it('filters by today', async () => {
+    mockList.mockResolvedValue(apps);
     render(<LoanOfficerDashboard />);
-    await waitFor(() => expect(screen.getByText('AL-002')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('filters')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Date range'), { target: { value: 'today' } });
   });
 
-  it('should handle wrapped response', async () => {
-    mockList.mockResolvedValue({ data: [{ id: 3, application_number: 'AL-003', status: 'pending_documents', user: null }] });
+  it('filters by month', async () => {
+    mockList.mockResolvedValue(apps);
     render(<LoanOfficerDashboard />);
-    await waitFor(() => expect(screen.getByText('AL-003')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId('filters')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Date range'), { target: { value: 'month' } });
   });
 
-  it('should show error state', async () => {
-    mockList.mockRejectedValue(new Error('Network error'));
+  it('search by app ID', async () => {
+    mockList.mockResolvedValue(apps);
     render(<LoanOfficerDashboard />);
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Network error'));
+    await waitFor(() => expect(screen.getByTestId('filters')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Search'), { target: { value: 'APP-0002' } });
+    expect(screen.getAllByTestId('app-row')).toHaveLength(1);
+  });
+
+  it('non-Error failure', async () => {
+    mockList.mockRejectedValue('fail');
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to load'));
+  });
+
+  it('renders pagination for many apps', async () => {
+    const many = Array.from({ length: 15 }, (_, i) => ({ ...apps[0], id: i + 1, application_number: `APP-${String(i).padStart(4,'0')}` }));
+    mockList.mockResolvedValue(many);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getByTestId('pagination')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('2'));
+    expect(screen.getAllByTestId('app-row')).toHaveLength(5);
+  });
+
+  it('renders missing personal_info gracefully', async () => {
+    mockList.mockResolvedValue([{ ...apps[0], personal_info: null }]);
+    render(<LoanOfficerDashboard />);
+    await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(1));
   });
 });
