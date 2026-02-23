@@ -7,7 +7,7 @@ describe('GlobalExceptionFilter', () => {
   const mockStatus = jest.fn().mockReturnValue({ json: mockJson });
   const mockHost = {
     switchToHttp: () => ({
-      getResponse: () => ({ status: mockStatus }),
+      getResponse: () => ({ status: mockStatus, headersSent: false }),
       getRequest: () => ({ path: '/api/v1/test' }),
     }),
   } as any;
@@ -81,5 +81,19 @@ describe('GlobalExceptionFilter', () => {
     const call = mockJson.mock.calls[0][0];
     expect(call.error.code).toBe('Forbidden');
     expect(call.error.innererror.code).toBe('InsufficientPermissions');
+  });
+
+  it('should skip response if headers already sent', () => {
+    const mockJsonSent = jest.fn();
+    const mockStatusSent = jest.fn().mockReturnValue({ json: mockJsonSent });
+    const mockHostSent = {
+      switchToHttp: () => ({
+        getResponse: () => ({ status: mockStatusSent, headersSent: true }),
+        getRequest: () => ({ path: '/api/v1/test' }),
+      }),
+    } as any;
+    filter.catch(new Error('double send'), mockHostSent);
+    expect(mockStatusSent).not.toHaveBeenCalled();
+    expect(mockJsonSent).not.toHaveBeenCalled();
   });
 });
