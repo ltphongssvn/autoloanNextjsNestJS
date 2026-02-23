@@ -303,4 +303,31 @@ describe('ApplicationDetailPage', () => {
     await waitFor(() => fireEvent.click(screen.getByText('Sign Agreement')));
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to sign'));
   });
+
+  it('shows download from signed status without sign button', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'signed' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByTestId('download-section')).toBeInTheDocument());
+    expect(screen.queryByText('Sign Agreement')).not.toBeInTheDocument();
+  });
+
+  it('renders missing loan info with dashes', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, loan_amount: 0, down_payment: 0, loan_term: null, interest_rate: null, monthly_payment: null });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByTestId('loan-section')).toBeInTheDocument());
+  });
+
+  it('renders with empty personal/car/employment info', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, personal_info: null, car_details: null, employment_info: null });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByTestId('personal-section')).toBeInTheDocument());
+  });
+
+  it('handles download non-Error failure', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
+    mockAgreementPdf.mockRejectedValue('string error');
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Download Agreement')));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to download'));
+  });
 });

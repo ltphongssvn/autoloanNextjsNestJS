@@ -41,7 +41,8 @@ export default function NotesList({ applicationId }: { applicationId: number }) 
     if (!noteText.trim()) return;
     setIsSubmitting(true);
     try {
-      const newNote = await api.notes.create(applicationId, { note: noteText, internal: isInternal });
+      const res = await api.notes.create(applicationId, { note: noteText, internal: isInternal });
+      const newNote = res.data ?? res;
       setNotes((prev) => [newNote, ...prev]);
       setNoteText('');
       setIsInternal(false);
