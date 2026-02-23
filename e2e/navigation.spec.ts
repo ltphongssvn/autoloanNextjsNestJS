@@ -14,7 +14,7 @@ test.describe('Navigation', () => {
     await page.goto('/login');
     await page.getByLabel('Email').fill('tiffany.chen@example.com');
     await page.getByLabel('Password').fill('password123');
-    await page.getByRole('button', { name: 'Log In' }).click();
+    await page.getByRole('button', { name: 'Sign In' }).click();
     await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
     await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'Profile' })).toBeVisible();
