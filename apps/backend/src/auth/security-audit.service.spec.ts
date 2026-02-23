@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { SecurityAuditService, EVENT_TYPES } from './security-audit.service';
 import { PrismaService } from '../prisma.service';
 import { Prisma } from '@prisma/client';
+import { Logger } from '@nestjs/common';
 
 describe('SecurityAuditService', () => {
   let service: SecurityAuditService;
@@ -27,7 +28,13 @@ describe('SecurityAuditService', () => {
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
+    module.useLogger(false);
     service = module.get<SecurityAuditService>(SecurityAuditService);
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('EVENT_TYPES', () => {
