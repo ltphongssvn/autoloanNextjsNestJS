@@ -271,3 +271,133 @@ describe('NewApplicationPage', () => {
     expect(screen.getByText('New Loan Application')).toBeInTheDocument();
   });
 });
+
+
+describe('NewApplicationPage submit with existing app', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('updates existing app then submits', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 10 } });
+    mockUpdate.mockResolvedValue({});
+    mockSubmit.mockResolvedValue({});
+    render(<NewApplicationPage />);
+    // Save to create app first
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    // Navigate to review
+    clickNext(); clickNext(); clickNext(); clickNext();
+    fireEvent.click(screen.getByText('I agree to the Terms and Conditions'));
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(10, expect.any(Object)));
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith(10));
+    await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard/applications/10'));
+  });
+
+  it('handles save with non-Error failure', async () => {
+    mockCreate.mockRejectedValue('oops');
+    render(<NewApplicationPage />);
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Save failed'));
+  });
+
+  it('handles update failure on submit', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 10 } });
+    mockUpdate.mockRejectedValue(new Error('Update failed'));
+    render(<NewApplicationPage />);
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    clickNext(); clickNext(); clickNext(); clickNext();
+    fireEvent.click(screen.getByText('I agree to the Terms and Conditions'));
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Update failed'));
+  });
+
+  it('handles submit api failure after create', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 10 } });
+    mockSubmit.mockRejectedValue(new Error('Submit failed'));
+    render(<NewApplicationPage />);
+    clickNext(); clickNext(); clickNext(); clickNext();
+    fireEvent.click(screen.getByText('I agree to the Terms and Conditions'));
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Submit failed'));
+  });
+
+  it('back button navigates to dashboard', () => {
+    render(<NewApplicationPage />);
+    fireEvent.click(screen.getByText('← Back'));
+    expect(mockPush).toHaveBeenCalledWith('/dashboard');
+  });
+
+  it('getFormData includes all sections', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 1 } });
+    mockSubmit.mockResolvedValue({});
+    render(<NewApplicationPage />);
+    // Fill personal
+    fireEvent.change(screen.getByLabelText(/First Name/), { target: { value: 'Test' } });
+    clickNext();
+    // Fill car
+    fireEvent.change(screen.getByLabelText(/Vehicle Value/), { target: { value: '30000' } });
+    clickNext();
+    // Fill loan
+    fireEvent.change(screen.getByLabelText(/Loan Amount/), { target: { value: '25000' } });
+    fireEvent.change(screen.getByLabelText(/Down Payment/), { target: { value: '5000' } });
+    clickNext();
+    // Fill employment
+    fireEvent.change(screen.getByLabelText(/Annual Income/), { target: { value: '80000' } });
+    clickNext();
+    // Submit
+    fireEvent.click(screen.getByText('I agree to the Terms and Conditions'));
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => {
+      const callArgs = mockCreate.mock.calls[0][0];
+      expect(callArgs).toHaveProperty('personal_info');
+      expect(callArgs).toHaveProperty('car_details');
+      expect(callArgs).toHaveProperty('loan_details');
+      expect(callArgs).toHaveProperty('employment_info');
+      expect(callArgs).toHaveProperty('loan_term');
+      expect(callArgs).toHaveProperty('loan_amount');
+      expect(callArgs).toHaveProperty('interest_rate');
+      expect(callArgs).toHaveProperty('monthly_payment');
+    });
+  });
+
+  it('save draft on step 2 includes car details', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 1 } });
+    render(<NewApplicationPage />);
+    clickNext();
+    fireEvent.change(screen.getByLabelText(/Vehicle Value/), { target: { value: '25000' } });
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        car_details: expect.objectContaining({ price: '25000' }),
+      }));
+    });
+  });
+
+  it('save draft on step 3 includes loan details', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 1 } });
+    render(<NewApplicationPage />);
+    clickNext(); clickNext();
+    fireEvent.change(screen.getByLabelText(/Loan Amount/), { target: { value: '30000' } });
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        loan_details: expect.objectContaining({ amount: '30000' }),
+      }));
+    });
+  });
+
+  it('save draft on step 4 includes employment info', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 1 } });
+    render(<NewApplicationPage />);
+    clickNext(); clickNext(); clickNext();
+    fireEvent.change(screen.getByLabelText(/Employer/), { target: { value: 'Acme' } });
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        employment_info: expect.objectContaining({ employer: 'Acme' }),
+      }));
+    });
+  });
+});
