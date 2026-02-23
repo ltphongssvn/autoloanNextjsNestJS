@@ -1,6 +1,7 @@
 import { NotificationsGateway } from './notifications.gateway';
 import { JwtService } from '@nestjs/jwt';
 import { Server, Socket } from 'socket.io';
+import { Logger } from '@nestjs/common';
 
 describe('NotificationsGateway', () => {
   let gateway: NotificationsGateway;
@@ -10,7 +11,14 @@ describe('NotificationsGateway', () => {
   beforeEach(() => {
     gateway = new NotificationsGateway(mockJwtService as unknown as JwtService);
     (gateway as any).server = mockServer;
+    jest.spyOn(Logger.prototype, 'log').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
     jest.clearAllMocks();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   const makeSocket = (token?: string): Partial<Socket> => ({
@@ -60,7 +68,6 @@ describe('NotificationsGateway', () => {
       const c2 = { ...makeSocket('t2'), id: 'sock-2', join: jest.fn(), disconnect: jest.fn(), data: {} };
       await gateway.handleConnection(c1 as Socket);
       await gateway.handleConnection(c2 as unknown as Socket);
-      // Both connected, no disconnect
       expect(c1.disconnect).not.toHaveBeenCalled();
       expect(c2.disconnect).not.toHaveBeenCalled();
     });
@@ -72,7 +79,6 @@ describe('NotificationsGateway', () => {
       const client = makeSocket('tok');
       await gateway.handleConnection(client as Socket);
       gateway.handleDisconnect(client as Socket);
-      // Should not throw
     });
 
     it('cleans up user entry when last socket disconnects', async () => {
@@ -80,7 +86,6 @@ describe('NotificationsGateway', () => {
       const client = makeSocket('tok');
       await gateway.handleConnection(client as Socket);
       gateway.handleDisconnect(client as Socket);
-      // Reconnect should work fine
       await gateway.handleConnection(client as Socket);
       expect(client.join).toHaveBeenCalledWith('user:7');
     });
@@ -88,7 +93,6 @@ describe('NotificationsGateway', () => {
     it('handles disconnect without userId', () => {
       const client: Partial<Socket> = { id: 'unknown', data: {} };
       gateway.handleDisconnect(client as Socket);
-      // Should not throw
     });
   });
 
