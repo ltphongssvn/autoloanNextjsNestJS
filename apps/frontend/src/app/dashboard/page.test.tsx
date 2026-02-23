@@ -1,91 +1,118 @@
-// apps/frontend/src/app/dashboard/page.test.tsx
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import DashboardPage from './page';
-const mockList = vi.fn();
-vi.mock('../../services/api', () => ({
-  api: { applications: { list: (...args: unknown[]) => mockList(...args) } },
-}));
-const mockUseAuth = vi.fn();
-vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => mockUseAuth(),
-}));
-const apps = [
-  { id: 1, application_number: 'AL-000001', status: 'submitted', loan_amount: '25000.00', created_at: '2026-01-01T00:00:00Z' },
-  { id: 2, application_number: 'AL-000002', status: 'approved', loan_amount: null, created_at: '2026-01-02T00:00:00Z' },
+
+const mockApplications = [
+  { id: 1, application_number: 'APP-0001', status: 'submitted', loan_amount: 25000, loan_term: 48, car_details: { make: 'Toyota', model: 'Camry', year: '2024' }, created_at: '2024-01-15T00:00:00Z', updated_at: '2024-01-15T00:00:00Z' },
+  { id: 2, application_number: 'APP-0002', status: 'draft', loan_amount: 0, loan_term: 36, car_details: {}, created_at: '2024-01-10T00:00:00Z', updated_at: '2024-01-12T00:00:00Z' },
 ];
+const mockList = vi.fn();
+const mockDelete = vi.fn();
+vi.mock('../../services/api', () => ({
+  api: {
+    applications: {
+      list: (...args: unknown[]) => mockList(...args),
+      delete: (...args: unknown[]) => mockDelete(...args),
+    },
+  },
+}));
+vi.mock('../../context/AuthContext', () => ({
+  useAuth: () => ({ user: { first_name: 'Tiffany', role: 'customer' }, token: 'abc' }),
+}));
+
 describe('DashboardPage', () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mockUseAuth.mockReturnValue({ user: { id: 1, role: 'customer' } });
-  });
-  it('should show loading state', () => {
-    mockList.mockReturnValue(new Promise(() => {}));
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('renders dashboard heading and welcome message', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
     render(<DashboardPage />);
-    expect(screen.getByRole('status')).toHaveTextContent('Loading...');
+    await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument());
+    expect(screen.getByText(/Welcome back, Tiffany/)).toBeInTheDocument();
   });
-  it('should render applications table', async () => {
-    mockList.mockResolvedValue({ data: apps });
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(2));
-    expect(screen.getByText('AL-000001')).toBeInTheDocument();
-    expect(screen.getByText('$25,000')).toBeInTheDocument();
-  });
-  it('should render with array response', async () => {
-    mockList.mockResolvedValue(apps);
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(2));
-  });
-  it('should render with envelope response { data: { data: [...] } }', async () => {
-    mockList.mockResolvedValue({ data: { data: apps, pagination: {} } });
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getAllByTestId('app-row')).toHaveLength(2));
-  });
-  it('should handle envelope with non-array inner data gracefully', async () => {
-    mockList.mockResolvedValue({ data: { something: 'else' } });
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getByTestId('empty-state')).toHaveTextContent('No applications found.'));
-  });
-  it('should handle response with no data key', async () => {
-    mockList.mockResolvedValue({ status: 'ok' });
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getByTestId('empty-state')).toHaveTextContent('No applications found.'));
-  });
-  it('should show empty state', async () => {
-    mockList.mockResolvedValue({ data: [] });
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getByTestId('empty-state')).toHaveTextContent('No applications found.'));
-  });
-  it('should show error', async () => {
-    mockList.mockRejectedValue(new Error('Server error'));
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Server error'));
-  });
-  it('should handle non-Error failure', async () => {
-    mockList.mockRejectedValue('fail');
-    render(<DashboardPage />);
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to load applications'));
-  });
-  it('should show New Application link for customers', async () => {
-    mockList.mockResolvedValue({ data: [] });
+
+  it('shows new application link for customers', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
     render(<DashboardPage />);
     await waitFor(() => expect(screen.getByTestId('new-app-link')).toBeInTheDocument());
   });
-  it('should hide New Application link for staff', async () => {
-    mockUseAuth.mockReturnValue({ user: { id: 2, role: 'loan_officer' } });
+
+  it('renders application cards with vehicle and loan info', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getAllByTestId('app-card')).toHaveLength(2));
+    expect(screen.getByText('APP-0001')).toBeInTheDocument();
+    expect(screen.getByText('2024 Toyota Camry')).toBeInTheDocument();
+    expect(screen.getByText(/\$25,000/)).toBeInTheDocument();
+  });
+
+  it('shows draft status with incomplete label and delete button', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('(Incomplete)')).toBeInTheDocument());
+    expect(screen.getByTestId('delete-btn')).toBeInTheDocument();
+  });
+
+  it('shows Continue link for draft and View link for submitted', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('Continue')).toBeInTheDocument());
+    expect(screen.getByText('View')).toBeInTheDocument();
+  });
+
+  it('deletes application on confirm', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    mockDelete.mockResolvedValue({});
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByTestId('delete-btn')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('delete-btn'));
+    await waitFor(() => expect(mockDelete).toHaveBeenCalledWith(2));
+  });
+
+  it('filters applications by status', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getAllByTestId('app-card')).toHaveLength(2));
+    fireEvent.change(screen.getByTestId('status-filter'), { target: { value: 'submitted' } });
+    expect(screen.getAllByTestId('app-card')).toHaveLength(1);
+  });
+
+  it('shows empty state when no applications', async () => {
     mockList.mockResolvedValue({ data: [] });
     render(<DashboardPage />);
     await waitFor(() => expect(screen.getByTestId('empty-state')).toBeInTheDocument());
-    expect(screen.queryByTestId('new-app-link')).toBeNull();
+    expect(screen.getByText('Start your first loan application today!')).toBeInTheDocument();
   });
-  it('should show dash for null loan amount', async () => {
-    mockList.mockResolvedValue({ data: [apps[1]] });
+
+  it('shows filter-aware empty state message', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
     render(<DashboardPage />);
-    await waitFor(() => expect(screen.getByText('—')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByTestId('app-card')).toHaveLength(2));
+    fireEvent.change(screen.getByTestId('status-filter'), { target: { value: 'approved' } });
+    expect(screen.getByText('Try changing your filter settings')).toBeInTheDocument();
   });
-  it('should display status badges with formatted text', async () => {
-    mockList.mockResolvedValue({ data: [{ ...apps[0], status: 'under_review' }] });
+
+  it('shows loading state', () => {
+    mockList.mockReturnValue(new Promise(() => {}));
     render(<DashboardPage />);
-    await waitFor(() => expect(screen.getByTestId('status-badge')).toHaveTextContent('under review'));
+    expect(screen.getByRole('status')).toHaveTextContent('Loading applications...');
+  });
+
+  it('shows error state', async () => {
+    mockList.mockRejectedValue(new Error('Network error'));
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Network error'));
+  });
+
+  it('renders settings link', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('Settings')).toBeInTheDocument());
+  });
+
+  it('renders order select', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByTestId('order-select')).toBeInTheDocument());
   });
 });
