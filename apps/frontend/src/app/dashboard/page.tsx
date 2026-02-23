@@ -31,15 +31,15 @@ function extractApplications(res: Record<string, unknown>): Application[] {
 }
 
 function getAppId(app: Application) {
-  return (app as Record<string, unknown>).application_number || `#APP-${String(app.id).padStart(4, '0')}`;
+  return (app as unknown as Record<string, unknown>).application_number || `#APP-${String(app.id).padStart(4, '0')}`;
 }
 function getVehicleInfo(app: Application) {
-  const car = ((app as Record<string, unknown>).car_details as Record<string, string>) || {};
+  const car = ((app as unknown as Record<string, unknown>).car_details as Record<string, string>) || {};
   return car.make && car.model && car.year ? `${car.year} ${car.make} ${car.model}` : null;
 }
 function getLoanInfo(app: Application) {
-  const amount = Number((app as Record<string, unknown>).loan_amount || 0);
-  const term = (app as Record<string, unknown>).loan_term || 48;
+  const amount = Number((app as unknown as Record<string, unknown>).loan_amount || 0);
+  const term = (app as unknown as Record<string, unknown>).loan_term || 48;
   return amount > 0 ? `$${amount.toLocaleString()} | ${term} months` : null;
 }
 
