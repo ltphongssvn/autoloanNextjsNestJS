@@ -35,6 +35,7 @@ export default function ApplicationStatusPage() {
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState<number | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -82,6 +83,27 @@ export default function ApplicationStatusPage() {
       setUploading(false);
       setUploadingType(null);
       e.target.value = '';
+    }
+  };
+
+  const handleDownload = async (doc: Doc) => {
+    if (!doc.download_url) return;
+    setDownloading(doc.id);
+    try {
+      const res = await api.documents.download(doc.download_url);
+      const blob = res instanceof Blob ? res : new Blob([res]);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.file_name || 'document';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch {
+      setError('Download failed');
+    } finally {
+      setDownloading(null);
     }
   };
 
@@ -188,8 +210,16 @@ export default function ApplicationStatusPage() {
                   {doc?.file_name && <span className="text-xs text-gray-400">{doc.file_name}</span>}
                 </div>
                 {doc && (
-                  <button onClick={() => handleUploadClick(dt.key)} disabled={uploading}
-                    className="text-xs text-blue-600 hover:underline disabled:opacity-50">Replace</button>
+                  <div className="flex gap-3">
+                    <button onClick={() => handleUploadClick(dt.key)} disabled={uploading}
+                      className="text-xs text-blue-600 hover:underline disabled:opacity-50">Replace</button>
+                    {doc.download_url && (
+                      <button onClick={() => handleDownload(doc)} disabled={downloading === doc.id}
+                        className="text-xs text-blue-600 hover:underline disabled:opacity-50">
+                        {downloading === doc.id ? 'Downloading...' : 'Download'}
+                      </button>
+                    )}
+                  </div>
                 )}
               </li>
             );
