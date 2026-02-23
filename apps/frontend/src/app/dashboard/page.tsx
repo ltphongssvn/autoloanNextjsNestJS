@@ -69,7 +69,7 @@ export default function DashboardPage() {
   const handleDelete = async (id: number | string) => {
     if (!confirm('Delete this application?')) return;
     try {
-      await api.applications.delete(id);
+      await api.applications.remove(id as number);
       setApplications((prev) => prev.filter((a) => a.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete');

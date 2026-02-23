@@ -12,7 +12,7 @@ vi.mock('../../services/api', () => ({
   api: {
     applications: {
       list: (...args: unknown[]) => mockList(...args),
-      delete: (...args: unknown[]) => mockDelete(...args),
+      remove: (...args: unknown[]) => mockDelete(...args),
     },
   },
 }));
