@@ -74,6 +74,7 @@ model User {
   statusHistories       StatusHistory[]
   verifiedDocuments     Document[]        @relation("VerifiedBy")
   apiKeys               ApiKey[]
+  securityAuditLogs     SecurityAuditLog[]
 
   @@map("users")
 }
