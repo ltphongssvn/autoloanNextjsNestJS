@@ -14,13 +14,14 @@ const mockApp = {
 const mockGet = vi.fn();
 const mockDocList = vi.fn();
 const mockDocUpload = vi.fn();
+const mockDocDownload = vi.fn();
 vi.mock('next/navigation', () => ({
   useParams: () => ({ id: '1' }),
 }));
 vi.mock('../../../../../services/api', () => ({
   api: {
     applications: { get: (...a: unknown[]) => mockGet(...a) },
-    documents: { list: (...a: unknown[]) => mockDocList(...a), upload: (...a: unknown[]) => mockDocUpload(...a) },
+    documents: { list: (...a: unknown[]) => mockDocList(...a), upload: (...a: unknown[]) => mockDocUpload(...a), download: (...a: unknown[]) => mockDocDownload(...a) },
   },
 }));
 
@@ -230,5 +231,139 @@ describe('ApplicationStatusPage', () => {
     render(<ApplicationStatusPage />);
     await waitFor(() => expect(screen.getByTestId('history-section')).toBeInTheDocument());
     expect(screen.getByTestId('history-section').textContent).not.toContain('Submitted —');
+  });
+});
+
+describe('ApplicationStatusPage download', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('shows download button for doc with download_url', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+  });
+
+  it('does not show download button when no download_url', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Replace')).toBeInTheDocument());
+    expect(screen.queryByText('Download')).not.toBeInTheDocument();
+  });
+
+  it('calls api.documents.download on click', async () => {
+    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
+    mockDocDownload.mockResolvedValue(mockBlob);
+    window.URL.createObjectURL = vi.fn(() => 'blob:url');
+    window.URL.revokeObjectURL = vi.fn();
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(mockDocDownload).toHaveBeenCalledWith('/download/5'));
+  });
+
+  it('shows error on download failure', async () => {
+    mockDocDownload.mockRejectedValue(new Error('fail'));
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Download failed'));
+  });
+
+  it('uses fallback filename when file_name missing', async () => {
+    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
+    mockDocDownload.mockResolvedValue(mockBlob);
+    window.URL.createObjectURL = vi.fn(() => 'blob:url');
+    window.URL.revokeObjectURL = vi.fn();
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(mockDocDownload).toHaveBeenCalled());
+  });
+
+  it('handles non-blob response', async () => {
+    mockDocDownload.mockResolvedValue('raw-data');
+    window.URL.createObjectURL = vi.fn(() => 'blob:url');
+    window.URL.revokeObjectURL = vi.fn();
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'doc.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(window.URL.createObjectURL).toHaveBeenCalled());
+  });
+});
+
+describe('ApplicationStatusPage download', () => {
+  beforeEach(() => { vi.clearAllMocks(); });
+
+  it('shows download button for doc with download_url', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+  });
+
+  it('does not show download button when no download_url', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Replace')).toBeInTheDocument());
+    expect(screen.queryByText('Download')).not.toBeInTheDocument();
+  });
+
+  it('calls api.documents.download on click', async () => {
+    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
+    mockDocDownload.mockResolvedValue(mockBlob);
+    window.URL.createObjectURL = vi.fn(() => 'blob:url');
+    window.URL.revokeObjectURL = vi.fn();
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(mockDocDownload).toHaveBeenCalledWith('/download/5'));
+  });
+
+  it('shows error on download failure', async () => {
+    mockDocDownload.mockRejectedValue(new Error('fail'));
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'license.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Download failed'));
+  });
+
+  it('uses fallback filename when file_name missing', async () => {
+    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
+    mockDocDownload.mockResolvedValue(mockBlob);
+    window.URL.createObjectURL = vi.fn(() => 'blob:url');
+    window.URL.revokeObjectURL = vi.fn();
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(mockDocDownload).toHaveBeenCalled());
+  });
+
+  it('handles non-blob response', async () => {
+    mockDocDownload.mockResolvedValue('raw-data');
+    window.URL.createObjectURL = vi.fn(() => 'blob:url');
+    window.URL.revokeObjectURL = vi.fn();
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 5, doc_type: 'drivers_license', status: 'uploaded', file_attached: true, file_name: 'doc.pdf', download_url: '/download/5' }]);
+    render(<ApplicationStatusPage />);
+    await waitFor(() => expect(screen.getByText('Download')).toBeInTheDocument());
+    fireEvent.click(screen.getByText('Download'));
+    await waitFor(() => expect(window.URL.createObjectURL).toHaveBeenCalled());
   });
 });
