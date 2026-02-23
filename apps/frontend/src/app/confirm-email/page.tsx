@@ -1,11 +1,11 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
 
-export default function ConfirmEmailPage() {
+function ConfirmEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('confirmation_token');
   const [status, setStatus] = useState<'loading' | 'success' | 'already' | 'error'>(token ? 'loading' : 'error');
@@ -42,8 +42,7 @@ export default function ConfirmEmailPage() {
   }, [token]);
 
   return (
-    <main className="max-w-md mx-auto px-4 py-16 text-center">
-      <h1 className="text-2xl font-bold mb-6">Email Confirmation</h1>
+    <>
       {status === 'loading' && (
         <div data-testid="confirm-loading" className="text-gray-500">
           <p>Confirming your email...</p>
@@ -66,6 +65,17 @@ export default function ConfirmEmailPage() {
           <p>{message}</p>
         </div>
       )}
+    </>
+  );
+}
+
+export default function ConfirmEmailPage() {
+  return (
+    <main className="max-w-md mx-auto px-4 py-16 text-center">
+      <h1 className="text-2xl font-bold mb-6">Email Confirmation</h1>
+      <Suspense fallback={<div data-testid="confirm-loading" className="text-gray-500"><p>Confirming your email...</p></div>}>
+        <ConfirmEmailContent />
+      </Suspense>
     </main>
   );
 }
