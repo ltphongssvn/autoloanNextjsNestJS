@@ -15,6 +15,7 @@ import { NotificationsModule } from './notifications';
 import { SecurityHeadersMiddleware } from './security-headers.middleware';
 import { ApiVersioningMiddleware } from './api-versioning.middleware';
 import { ResponseTimeMiddleware } from './response-time.middleware';
+import { RequestValidatorMiddleware } from './request-validator.middleware';
 @Module({
   imports: [
     ThrottlerModule.forRoot([
@@ -43,6 +44,6 @@ import { ResponseTimeMiddleware } from './response-time.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(SecurityHeadersMiddleware, ApiVersioningMiddleware, ResponseTimeMiddleware).forRoutes('*');
+    consumer.apply(SecurityHeadersMiddleware, ApiVersioningMiddleware, ResponseTimeMiddleware, RequestValidatorMiddleware).forRoutes('*');
   }
 }
