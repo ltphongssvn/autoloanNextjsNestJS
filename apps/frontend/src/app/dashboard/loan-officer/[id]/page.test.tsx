@@ -240,4 +240,103 @@ describe('LoanOfficerReviewPage', () => {
     const select = screen.getByLabelText('Action');
     expect(select).toContainHTML('Forward to Underwriter');
   });
+
+  it('renders with missing personal/car/employment data', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, personal_info: null, car_details: null, loan_details: null, employment_info: null, monthly_payment: null });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByTestId('applicant-section')).toBeInTheDocument());
+  });
+
+  it('renders fallback app number', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, application_number: undefined });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByText(/APP-0001/)).toBeInTheDocument());
+  });
+
+  it('renders doc with rejected status color', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 6, doc_type: 'bank_statement', status: 'rejected' }]);
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByText('rejected')).toBeInTheDocument());
+  });
+
+  it('renders doc with pending status and no file_url', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue([{ id: 7, doc_type: 'proof_income', status: 'pending' }]);
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByText('pending')).toBeInTheDocument());
+    expect(screen.queryByText('View')).not.toBeInTheDocument();
+  });
+
+  it('handles non-Error action failure', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockStartVerification.mockRejectedValue('string error');
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByTestId('decision-section')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Action'), { target: { value: 'start_verification' } });
+    fireEvent.click(screen.getByTestId('decision-btn'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to start-verification'));
+  });
+
+  it('handles non-Error add note failure', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockAddNote.mockRejectedValue('fail');
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByTestId('notes-section')).toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Note'), { target: { value: 'x' } });
+    fireEvent.click(screen.getByText('Add Note'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to add note'));
+  });
+
+  it('handles non-Error load failure', async () => {
+    mockGet.mockRejectedValue('string error');
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to load'));
+  });
+
+  it('decision with no action does nothing', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByTestId('decision-btn')).toBeDisabled());
+  });
+
+  it('renders SSN dash when missing', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, personal_info: { ...mockApp.personal_info, ssn: undefined } });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByTestId('applicant-section')).toBeInTheDocument());
+  });
+
+  it('renders with zero vehicle price and income', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, car_details: { ...mockApp.car_details, price: '0' }, employment_info: { ...mockApp.employment_info, income: '0' } });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getAllByText('0%').length).toBeGreaterThanOrEqual(2));
+  });
+
+  it('renders wrapped notes response', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockGetNotes.mockResolvedValue({ data: [{ id: 2, note: 'Wrapped', internal: true, created_at: '2024-01-20T00:00:00Z', user_id: 1 }] });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByText('Wrapped')).toBeInTheDocument());
+  });
+
+  it('renders wrapped docs response', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockDocList.mockResolvedValue({ data: [{ id: 8, doc_type: 'insurance', status: 'uploaded' }] });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByText('Insurance')).toBeInTheDocument());
+  });
+
+  it('does not show start verification for non-submitted', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'under_review' });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByTestId('decision-section')).toBeInTheDocument());
+    expect(screen.getByLabelText('Action')).not.toContainHTML('Start Verification');
+  });
+
+  it('does not show forward option for under_review', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'under_review' });
+    render(<LoanOfficerReviewPage />);
+    await waitFor(() => expect(screen.getByTestId('decision-section')).toBeInTheDocument());
+    expect(screen.getByLabelText('Action')).not.toContainHTML('Forward to Underwriter');
+  });
 });
