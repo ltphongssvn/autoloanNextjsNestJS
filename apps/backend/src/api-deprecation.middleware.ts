@@ -10,8 +10,8 @@ export interface DeprecatedRoute {
   replacement?: string;
 }
 
-const DEPRECATED_ROUTES: DeprecatedRoute[] = [
-  // Example: uncomment and add deprecated routes as needed
+export const DEPRECATED_ROUTES: DeprecatedRoute[] = [
+  // Add deprecated routes as needed, e.g.:
   // {
   //   method: 'GET',
   //   path: /^\/api\/v1\/applications\/legacy/,
