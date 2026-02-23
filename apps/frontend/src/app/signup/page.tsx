@@ -1,25 +1,24 @@
-// apps/frontend/src/app/signup/page.tsx
 'use client';
-
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../services/api';
-
 export default function SignupPage() {
-  const [form, setForm] = useState({ email: '', password: '', first_name: '', last_name: '' });
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', password: '', password_confirmation: '' });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
+    if (form.password !== form.password_confirmation) {
+      setError('Passwords do not match');
+      return;
+    }
+    setIsLoading(true);
     try {
       const res = await api.auth.signup(form);
       if (res.token) {
@@ -32,11 +31,11 @@ export default function SignupPage() {
       setIsLoading(false);
     }
   };
-
   return (
-    <main className="max-w-md mx-auto px-4 py-16">
-      <div className="bg-white p-8 rounded-xl shadow-sm border">
-        <h1 className="text-2xl font-bold mb-6 text-center">Create Account</h1>
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-500 to-purple-600 px-4">
+      <div className="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+        <h1 className="text-2xl font-bold text-blue-600 mb-1">Auto Loan</h1>
+        <p className="text-lg mb-6">Create your account</p>
         {error && <div role="alert" className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>}
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -50,6 +49,10 @@ export default function SignupPage() {
             </div>
           </div>
           <div>
+            <label htmlFor="phone" className="block text-sm font-medium mb-1">Phone Number</label>
+            <input id="phone" name="phone" placeholder="(555) 123-4567" value={form.phone} onChange={handleChange} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+          </div>
+          <div>
             <label htmlFor="email" className="block text-sm font-medium mb-1">Email</label>
             <input id="email" name="email" type="email" value={form.email} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
           </div>
@@ -57,9 +60,16 @@ export default function SignupPage() {
             <label htmlFor="password" className="block text-sm font-medium mb-1">Password</label>
             <input id="password" name="password" type="password" value={form.password} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
           </div>
-          <button type="submit" disabled={isLoading} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition">{isLoading ? 'Creating...' : 'Create Account'}</button>
+          <div>
+            <label htmlFor="password_confirmation" className="block text-sm font-medium mb-1">Confirm Password</label>
+            <input id="password_confirmation" name="password_confirmation" type="password" value={form.password_confirmation} onChange={handleChange} required className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none" />
+          </div>
+          <button type="submit" disabled={isLoading} className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 transition">{isLoading ? 'Creating account...' : 'Sign Up'}</button>
         </form>
-        <p className="mt-4 text-center text-sm text-gray-600">Already have an account? <Link href="/login" className="text-blue-600 hover:underline">Log in</Link></p>
+        <div className="mt-4 text-center space-y-1">
+          <p className="text-sm text-gray-600">Already have an account? <Link href="/login" className="text-blue-600 hover:underline">Login</Link></p>
+          <p><Link href="/" className="text-sm text-blue-600 hover:underline">Back to home</Link></p>
+        </div>
       </div>
     </main>
   );
