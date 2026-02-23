@@ -1,5 +1,5 @@
-// apps/frontend/src/app/page.tsx
 import Link from 'next/link';
+import PaymentCalculator from '../components/PaymentCalculator';
 
 export default function HomePage() {
   return (
@@ -12,6 +12,7 @@ export default function HomePage() {
           <Link href="/signup" data-testid="cta-signup" className="px-6 py-3 border border-blue-600 text-blue-600 rounded-lg font-medium hover:bg-blue-50 transition">Sign Up</Link>
         </div>
       </section>
+      <PaymentCalculator />
       <section data-testid="features">
         <h2 className="text-2xl font-bold text-center mb-8">Why Choose AutoLoan?</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
