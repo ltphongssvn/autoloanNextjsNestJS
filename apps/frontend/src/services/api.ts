@@ -81,6 +81,7 @@ export const api = {
       return fetch(`${BASE_URL}/applications/${applicationId}/documents`, { method: 'POST', headers, body: data }).then(r => r.json());
     },
     remove: (id: number) => request(`/documents/${id}`, { method: 'DELETE' }),
+    download: (url: string) => downloadFile(url.startsWith('/') ? url : `/${url}`),
     updateStatus: (id: number, status: string, rejectionNote?: string) => request(`/documents/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status, rejection_note: rejectionNote }) }),
   },
   notes: {
