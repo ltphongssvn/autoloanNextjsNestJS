@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { api } from '../../../../services/api';
 
 const LOAN_TERMS = [
@@ -36,6 +36,10 @@ function calculatePayment(principal: number, term: number, apr: number) {
 
 export default function NewApplicationPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
+
+  const [appId, setAppId] = useState<number | null>(editId ? Number(editId) : null);
   const [step, setStep] = useState(1);
   const [personal, setPersonal] = useState<PersonalInfo>(emptyPersonal);
   const [car, setCar] = useState<CarDetails>(emptyCar);
@@ -45,7 +49,32 @@ export default function NewApplicationPage() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [documents, setDocuments] = useState({ drivers_license: false, proof_income: false, proof_residence: false });
   const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (!editId) return;
+    async function load() {
+      try {
+        const res = await api.applications.get(Number(editId));
+        const app = res.data ?? res;
+        const pi = (app.personal_info as Record<string, string>) || {};
+        const cd = (app.car_details as Record<string, string>) || {};
+        const ld = (app.loan_details as Record<string, string>) || {};
+        const ei = (app.employment_info as Record<string, string>) || {};
+        setPersonal({ ...emptyPersonal, ...pi });
+        setCar({ ...emptyCar, ...cd });
+        setLoan({ ...emptyLoan, ...ld });
+        setEmployment({ ...emptyEmployment, ...ei });
+        setStep(app.current_step || 1);
+        setAppId(app.id);
+        if (app.loan_term) setSelectedTerm(app.loan_term);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to load application');
+      }
+    }
+    load();
+  }, [editId]);
 
   const vehicleValue = Number(car.price || 0);
   const loanAmount = Number(loan.amount || 0);
@@ -60,6 +89,37 @@ export default function NewApplicationPage() {
   const updateField = <T,>(setter: React.Dispatch<React.SetStateAction<T>>, field: keyof T) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setter((prev) => ({ ...prev, [field]: e.target.value } as T));
 
+  const getFormData = () => ({
+    current_step: step,
+    personal_info: personal,
+    car_details: car,
+    loan_details: loan,
+    employment_info: employment,
+    loan_term: selectedTerm,
+    loan_amount: loanAmount,
+    down_payment: downPayment,
+    interest_rate: termData.apr,
+    monthly_payment: Number(monthlyPayment.toFixed(2)),
+  });
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError('');
+    try {
+      if (appId) {
+        await api.applications.update(appId, getFormData());
+      } else {
+        const res = await api.applications.create(getFormData());
+        const newId = res.data?.id ?? res.id;
+        setAppId(newId);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Save failed');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const next = () => { setError(''); setStep((s) => Math.min(s + 1, 5)); };
   const back = () => { setError(''); setStep((s) => Math.max(s - 1, 1)); };
 
@@ -68,12 +128,15 @@ export default function NewApplicationPage() {
     setIsSubmitting(true);
     setError('');
     try {
-      const res = await api.applications.create({
-        loanAmount: principal,
-        downPayment,
-        loanTerm: selectedTerm,
-      });
-      router.push(`/dashboard/applications/${res.data?.id ?? res.id}`);
+      let id = appId;
+      if (id) {
+        await api.applications.update(id, getFormData());
+      } else {
+        const res = await api.applications.create(getFormData());
+        id = res.data?.id ?? res.id;
+      }
+      await api.applications.submit(id!);
+      router.push(`/dashboard/applications/${id}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to submit application');
     } finally {
@@ -85,7 +148,10 @@ export default function NewApplicationPage() {
 
   return (
     <main className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-2">New Loan Application</h1>
+      <div className="flex items-center gap-3 mb-2">
+        <button onClick={() => router.push('/dashboard')} className="text-sm text-blue-600 hover:underline">← Back</button>
+        <h1 className="text-2xl font-bold">{editId ? 'Edit Application' : 'New Loan Application'}</h1>
+      </div>
       <div className="flex gap-1 mb-6">
         {steps.map((s, i) => (
           <div key={s} className={`flex-1 text-center text-xs py-2 rounded-full font-medium ${i + 1 <= step ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-500'}`}>{s}</div>
@@ -125,7 +191,8 @@ export default function NewApplicationPage() {
               <label className={labelClass}>Phone<input value={personal.phone} onChange={updateField(setPersonal, 'phone')} className={inputClass} /></label>
               <label className={labelClass}>Email<input type="email" value={personal.email} onChange={updateField(setPersonal, 'email')} className={inputClass} /></label>
             </div>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <button onClick={handleSave} disabled={saving} className="px-4 py-2 border border-amber-500 text-amber-700 rounded-lg font-medium hover:bg-amber-50 disabled:opacity-50 transition">{saving ? 'Saving...' : 'Save Draft'}</button>
               <button onClick={next} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Next</button>
             </div>
           </section>
@@ -174,7 +241,10 @@ export default function NewApplicationPage() {
             <label className={labelClass}>Vehicle Value ($)<input type="number" value={car.price} onChange={updateField(setCar, 'price')} className={inputClass} /></label>
             <div className="flex justify-between">
               <button onClick={back} className="px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition">Back</button>
-              <button onClick={next} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Next</button>
+              <div className="flex gap-2">
+                <button onClick={handleSave} disabled={saving} className="px-4 py-2 border border-amber-500 text-amber-700 rounded-lg font-medium hover:bg-amber-50 disabled:opacity-50 transition">{saving ? 'Saving...' : 'Save Draft'}</button>
+                <button onClick={next} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Next</button>
+              </div>
             </div>
           </section>
         )}
@@ -196,7 +266,10 @@ export default function NewApplicationPage() {
             </div>
             <div className="flex justify-between">
               <button onClick={back} className="px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition">Back</button>
-              <button onClick={next} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Next</button>
+              <div className="flex gap-2">
+                <button onClick={handleSave} disabled={saving} className="px-4 py-2 border border-amber-500 text-amber-700 rounded-lg font-medium hover:bg-amber-50 disabled:opacity-50 transition">{saving ? 'Saving...' : 'Save Draft'}</button>
+                <button onClick={next} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Next</button>
+              </div>
             </div>
           </section>
         )}
@@ -234,7 +307,10 @@ export default function NewApplicationPage() {
             </div>
             <div className="flex justify-between">
               <button onClick={back} className="px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition">Back</button>
-              <button onClick={next} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Next</button>
+              <div className="flex gap-2">
+                <button onClick={handleSave} disabled={saving} className="px-4 py-2 border border-amber-500 text-amber-700 rounded-lg font-medium hover:bg-amber-50 disabled:opacity-50 transition">{saving ? 'Saving...' : 'Save Draft'}</button>
+                <button onClick={next} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Next</button>
+              </div>
             </div>
           </section>
         )}
@@ -284,9 +360,12 @@ export default function NewApplicationPage() {
             </div>
             <div className="flex justify-between">
               <button onClick={back} className="px-6 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition">Back</button>
-              <button onClick={handleSubmit} disabled={isSubmitting} className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition">
-                {isSubmitting ? 'Submitting...' : 'Submit Application'}
-              </button>
+              <div className="flex gap-2">
+                <button onClick={handleSave} disabled={saving} className="px-4 py-2 border border-amber-500 text-amber-700 rounded-lg font-medium hover:bg-amber-50 disabled:opacity-50 transition">{saving ? 'Saving...' : 'Save Draft'}</button>
+                <button onClick={handleSubmit} disabled={isSubmitting} className="px-6 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 transition">
+                  {isSubmitting ? 'Submitting...' : 'Submit Application'}
+                </button>
+              </div>
             </div>
           </section>
         )}

@@ -3,11 +3,24 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import NewApplicationPage from './page';
 
 const mockPush = vi.fn();
-vi.mock('next/navigation', () => ({ useRouter: () => ({ push: mockPush }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: mockPush }),
+  useSearchParams: () => ({ get: () => null }),
+}));
 
 const mockCreate = vi.fn();
+const mockUpdate = vi.fn();
+const mockSubmit = vi.fn();
+const mockGetApp = vi.fn();
 vi.mock('../../../../services/api', () => ({
-  api: { applications: { create: (...args: unknown[]) => mockCreate(...args) } },
+  api: {
+    applications: {
+      create: (...args: unknown[]) => mockCreate(...args),
+      update: (...args: unknown[]) => mockUpdate(...args),
+      submit: (...args: unknown[]) => mockSubmit(...args),
+      get: (...args: unknown[]) => mockGetApp(...args),
+    },
+  },
 }));
 
 function clickNext() { fireEvent.click(screen.getByText('Next')); }
@@ -125,17 +138,21 @@ describe('NewApplicationPage', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Please accept the terms and conditions.');
   });
 
-  it('submits and redirects on success', async () => {
+  it('submits with create then submit and redirects', async () => {
     mockCreate.mockResolvedValue({ data: { id: '42' } });
+    mockSubmit.mockResolvedValue({});
     render(<NewApplicationPage />);
     clickNext(); clickNext(); clickNext(); clickNext();
     fireEvent.click(screen.getByText('I agree to the Terms and Conditions'));
     fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    await waitFor(() => expect(mockSubmit).toHaveBeenCalledWith('42'));
     await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/dashboard/applications/42'));
   });
 
   it('submits with res.id fallback', async () => {
     mockCreate.mockResolvedValue({ id: 99 });
+    mockSubmit.mockResolvedValue({});
     render(<NewApplicationPage />);
     clickNext(); clickNext(); clickNext(); clickNext();
     fireEvent.click(screen.getByText('I agree to the Terms and Conditions'));
@@ -177,5 +194,80 @@ describe('NewApplicationPage', () => {
     expect(dl).not.toBeChecked();
     fireEvent.click(dl);
     expect(dl).toBeChecked();
+  });
+
+  it('renders save draft button on every step', () => {
+    render(<NewApplicationPage />);
+    expect(screen.getByText('Save Draft')).toBeInTheDocument();
+    clickNext();
+    expect(screen.getByText('Save Draft')).toBeInTheDocument();
+    clickNext();
+    expect(screen.getByText('Save Draft')).toBeInTheDocument();
+    clickNext();
+    expect(screen.getByText('Save Draft')).toBeInTheDocument();
+    clickNext();
+    expect(screen.getByText('Save Draft')).toBeInTheDocument();
+  });
+
+  it('save draft creates new app when no appId', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 10 } });
+    render(<NewApplicationPage />);
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ current_step: 1, personal_info: expect.any(Object) })));
+  });
+
+  it('save draft updates existing app when appId set', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 10 } });
+    mockUpdate.mockResolvedValue({});
+    render(<NewApplicationPage />);
+    // First save creates
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => expect(mockCreate).toHaveBeenCalled());
+    // Second save updates
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(10, expect.any(Object)));
+  });
+
+  it('shows save error', async () => {
+    mockCreate.mockRejectedValue(new Error('Save failed'));
+    render(<NewApplicationPage />);
+    fireEvent.click(screen.getByText('Save Draft'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Save failed'));
+  });
+
+  it('shows saving state', async () => {
+    mockCreate.mockReturnValue(new Promise(() => {}));
+    render(<NewApplicationPage />);
+    fireEvent.click(screen.getByText('Save Draft'));
+    expect(screen.getByText('Saving...')).toBeInTheDocument();
+  });
+
+  it('sends complete form data on submit', async () => {
+    mockCreate.mockResolvedValue({ data: { id: 55 } });
+    mockSubmit.mockResolvedValue({});
+    render(<NewApplicationPage />);
+    fireEvent.change(screen.getByLabelText(/First Name/), { target: { value: 'Jane' } });
+    clickNext(); clickNext(); clickNext(); clickNext();
+    fireEvent.click(screen.getByText('I agree to the Terms and Conditions'));
+    fireEvent.click(screen.getByText('Submit Application'));
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({
+        personal_info: expect.objectContaining({ first_name: 'Jane' }),
+        car_details: expect.any(Object),
+        employment_info: expect.any(Object),
+        loan_details: expect.any(Object),
+      }));
+    });
+  });
+
+  it('renders back to dashboard link', () => {
+    render(<NewApplicationPage />);
+    expect(screen.getByText('← Back')).toBeInTheDocument();
+  });
+
+  it('shows Edit Application title in edit mode', () => {
+    // Default mock returns null for searchParams.get, so title is New
+    render(<NewApplicationPage />);
+    expect(screen.getByText('New Loan Application')).toBeInTheDocument();
   });
 });
