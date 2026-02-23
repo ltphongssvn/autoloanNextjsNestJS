@@ -21,7 +21,7 @@ vi.mock('../../context/AuthContext', () => ({
 }));
 
 describe('DashboardPage', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
   it('renders dashboard heading and welcome message', async () => {
     mockList.mockResolvedValue({ data: mockApplications });
@@ -114,5 +114,39 @@ describe('DashboardPage', () => {
     mockList.mockResolvedValue({ data: mockApplications });
     render(<DashboardPage />);
     await waitFor(() => expect(screen.getByTestId('order-select')).toBeInTheDocument());
+  });
+
+  it('handles nested envelope response format', async () => {
+    mockList.mockResolvedValue({ data: { data: mockApplications } });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getAllByTestId('app-card')).toHaveLength(2));
+  });
+
+  it('handles bare array response format', async () => {
+    mockList.mockResolvedValue(mockApplications);
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getAllByTestId('app-card')).toHaveLength(2));
+  });
+
+  it('handles empty object response gracefully', async () => {
+    mockList.mockResolvedValue({});
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByTestId('empty-state')).toBeInTheDocument());
+  });
+
+  it('shows error when delete fails', async () => {
+    mockList.mockResolvedValue({ data: mockApplications });
+    mockDelete.mockRejectedValue(new Error('Delete failed'));
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByTestId('delete-btn')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('delete-btn'));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Delete failed'));
+  });
+
+  it('generates fallback app ID when no application_number', async () => {
+    mockList.mockResolvedValue({ data: [{ ...mockApplications[0], application_number: undefined }] });
+    render(<DashboardPage />);
+    await waitFor(() => expect(screen.getByText('#APP-0001')).toBeInTheDocument());
   });
 });
