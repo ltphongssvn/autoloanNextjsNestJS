@@ -46,6 +46,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       errorResponse.error.innererror.details = details;
     }
 
+    if (response.headersSent) return;
     response.status(status).json(errorResponse);
   }
 
