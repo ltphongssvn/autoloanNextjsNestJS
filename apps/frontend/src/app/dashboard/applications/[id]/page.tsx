@@ -180,8 +180,8 @@ export default function ApplicationDetailPage() {
       <section data-testid="timeline-section" className="bg-white rounded-xl border p-6 mb-4">
         <h2 className="text-base font-semibold mb-3">Timeline</h2>
         <p className="text-sm">Created: {new Date(application.created_at).toLocaleString()}</p>
-        {app.submitted_at && <p className="text-sm">Submitted: {new Date(app.submitted_at as string).toLocaleString()}</p>}
-        {app.decided_at && <p className="text-sm">Decided: {new Date(app.decided_at as string).toLocaleString()}</p>}
+        {typeof app.submitted_at === 'string' && <p className="text-sm">Submitted: {new Date(app.submitted_at).toLocaleString()}</p>}
+        {typeof app.decided_at === 'string' && <p className="text-sm">Decided: {new Date(app.decided_at).toLocaleString()}</p>}
       </section>
 
       {canSubmitApp && (
