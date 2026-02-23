@@ -71,7 +71,10 @@ export default function ApplicationStatusPage() {
     if (!file || !uploadingType) return;
     setUploading(true);
     try {
-      await api.documents.upload(Number(id), uploadingType, file);
+      const formData = new FormData();
+      formData.append("document[doc_type]", uploadingType);
+      formData.append("document[file]", file);
+      await api.documents.upload(Number(id), formData);
       await reloadDocs();
     } catch {
       setError('Upload failed');
