@@ -223,7 +223,6 @@ describe('ApplicationDetailPage', () => {
     render(<ApplicationDetailPage />);
     await waitFor(() => expect(screen.getByTestId('download-section')).toBeInTheDocument());
   });
-});
 
   it('handles status update with non-Error rejection', async () => {
     mockUseAuth.mockReturnValue({ user: { role: 'loan_officer' }, token: 'abc' });
@@ -234,17 +233,6 @@ describe('ApplicationDetailPage', () => {
     await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to update status'));
   });
 
-  it('downloads pdf successfully', async () => {
-    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
-    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
-    mockAgreementPdf.mockResolvedValue(mockBlob);
-    const mockCreateObjectURL = vi.fn(() => 'blob:test');
-    const mockRevokeObjectURL = vi.fn();
-    vi.stubGlobal('URL', { createObjectURL: mockCreateObjectURL, revokeObjectURL: mockRevokeObjectURL });
-    render(<ApplicationDetailPage />);
-    await waitFor(() => fireEvent.click(screen.getByText('Download Agreement')));
-    await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
-  });
 
   it('staff approves application', async () => {
     mockUseAuth.mockReturnValue({ user: { role: 'underwriter' }, token: 'abc' });
@@ -263,3 +251,56 @@ describe('ApplicationDetailPage', () => {
     await waitFor(() => fireEvent.click(screen.getByText('Reject')));
     await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'rejected'));
   });
+
+  it('downloads pdf successfully without breaking URL', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
+    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
+    mockAgreementPdf.mockResolvedValue(mockBlob);
+    const origURL = globalThis.URL;
+    const mockRevoke = vi.fn();
+    globalThis.URL.createObjectURL = vi.fn(() => 'blob:test');
+    globalThis.URL.revokeObjectURL = mockRevoke;
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Download Agreement')));
+    await waitFor(() => expect(mockRevoke).toHaveBeenCalled());
+    globalThis.URL = origURL;
+  });
+
+  it('does not show submit for non-draft customer', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'submitted' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Application APP-0001')).toBeInTheDocument());
+    expect(screen.queryByText('Submit Application')).not.toBeInTheDocument();
+  });
+
+  it('does not show sign for non-approved customer', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'submitted' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Application APP-0001')).toBeInTheDocument());
+    expect(screen.queryByText('Sign Agreement')).not.toBeInTheDocument();
+  });
+
+  it('does not show staff actions for customer', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'under_review' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => expect(screen.getByText('Application APP-0001')).toBeInTheDocument());
+    expect(screen.queryByText('Approve')).not.toBeInTheDocument();
+    expect(screen.queryByText('Start Review')).not.toBeInTheDocument();
+  });
+
+  it('handles submit with non-Error rejection', async () => {
+    mockGet.mockResolvedValue(mockApp);
+    mockSubmit.mockRejectedValue('string error');
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Submit Application')));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to submit'));
+  });
+
+  it('handles sign with non-Error rejection', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
+    mockSign.mockRejectedValue('string error');
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Sign Agreement')));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to sign'));
+  });
+});
