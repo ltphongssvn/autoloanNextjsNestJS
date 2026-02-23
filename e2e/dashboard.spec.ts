@@ -3,7 +3,7 @@ async function login(page: import('@playwright/test').Page, email = 'tiffany.che
   await page.goto('/login');
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(password);
-  await page.getByRole('button', { name: 'Log In' }).click();
+  await page.getByRole('button', { name: 'Sign In' }).click();
   await expect(page).toHaveURL(/\/dashboard/, { timeout: 10000 });
 }
 test.describe('Dashboard', () => {
@@ -22,7 +22,7 @@ test.describe('Dashboard', () => {
     await login(page);
     await page.getByTestId('new-app-link').click();
     await expect(page).toHaveURL(/\/applications\/new/);
-    await expect(page.getByText('Step 1 of 4')).toBeVisible();
+    await expect(page.getByText('Step 1 of 5')).toBeVisible();
   });
   test('should navigate through multi-step form', async ({ page }) => {
     await login(page);
@@ -31,11 +31,11 @@ test.describe('Dashboard', () => {
     await page.getByTestId('step-personal').getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('step-vehicle')).toBeVisible();
     await page.getByTestId('step-vehicle').getByRole('button', { name: 'Next' }).click();
-    await expect(page.getByTestId('step-employment')).toBeVisible();
-    await page.getByTestId('step-employment').getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('step-loan')).toBeVisible();
-    await page.getByTestId('step-loan').getByRole('button', { name: 'Back' }).click();
+    await page.getByTestId('step-loan').getByRole('button', { name: 'Next' }).click();
     await expect(page.getByTestId('step-employment')).toBeVisible();
+    await page.getByTestId('step-employment').getByRole('button', { name: 'Back' }).click();
+    await expect(page.getByTestId('step-loan')).toBeVisible();
   });
   test('should access profile page', async ({ page }) => {
     await login(page);
