@@ -2,15 +2,12 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api/v1';
-
 function ConfirmEmailContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('confirmation_token');
   const [status, setStatus] = useState<'loading' | 'success' | 'already' | 'error'>(token ? 'loading' : 'error');
   const [message, setMessage] = useState(token ? '' : 'No confirmation token provided.');
-
   useEffect(() => {
     if (!token) return;
     let cancelled = false;
@@ -40,7 +37,6 @@ function ConfirmEmailContent() {
     confirm();
     return () => { cancelled = true; };
   }, [token]);
-
   return (
     <>
       {status === 'loading' && (
@@ -62,13 +58,16 @@ function ConfirmEmailContent() {
       )}
       {status === 'error' && (
         <div data-testid="confirm-error" className="p-4 bg-red-50 text-red-700 rounded-lg">
-          <p>{message}</p>
+          <p className="mb-4">{message}</p>
+          <div className="flex gap-3 justify-center">
+            <Link href="/resend-confirmation" className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition">Resend Confirmation</Link>
+            <Link href="/login" className="px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 transition">Back to Login</Link>
+          </div>
         </div>
       )}
     </>
   );
 }
-
 export default function ConfirmEmailPage() {
   return (
     <main className="max-w-md mx-auto px-4 py-16 text-center">
