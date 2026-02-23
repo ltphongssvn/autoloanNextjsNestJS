@@ -224,3 +224,42 @@ describe('ApplicationDetailPage', () => {
     await waitFor(() => expect(screen.getByTestId('download-section')).toBeInTheDocument());
   });
 });
+
+  it('handles status update with non-Error rejection', async () => {
+    mockUseAuth.mockReturnValue({ user: { role: 'loan_officer' }, token: 'abc' });
+    mockGet.mockResolvedValue({ ...mockApp, status: 'submitted' });
+    mockUpdateStatus.mockRejectedValue('string error');
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Start Review')));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to update status'));
+  });
+
+  it('downloads pdf successfully', async () => {
+    mockGet.mockResolvedValue({ ...mockApp, status: 'approved' });
+    const mockBlob = new Blob(['test'], { type: 'application/pdf' });
+    mockAgreementPdf.mockResolvedValue(mockBlob);
+    const mockCreateObjectURL = vi.fn(() => 'blob:test');
+    const mockRevokeObjectURL = vi.fn();
+    vi.stubGlobal('URL', { createObjectURL: mockCreateObjectURL, revokeObjectURL: mockRevokeObjectURL });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Download Agreement')));
+    await waitFor(() => expect(mockCreateObjectURL).toHaveBeenCalled());
+  });
+
+  it('staff approves application', async () => {
+    mockUseAuth.mockReturnValue({ user: { role: 'underwriter' }, token: 'abc' });
+    mockGet.mockResolvedValue({ ...mockApp, status: 'under_review' });
+    mockUpdateStatus.mockResolvedValue({ ...mockApp, status: 'approved' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Approve')));
+    await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'approved'));
+  });
+
+  it('staff rejects application', async () => {
+    mockUseAuth.mockReturnValue({ user: { role: 'underwriter' }, token: 'abc' });
+    mockGet.mockResolvedValue({ ...mockApp, status: 'under_review' });
+    mockUpdateStatus.mockResolvedValue({ ...mockApp, status: 'rejected' });
+    render(<ApplicationDetailPage />);
+    await waitFor(() => fireEvent.click(screen.getByText('Reject')));
+    await waitFor(() => expect(mockUpdateStatus).toHaveBeenCalledWith(1, 'rejected'));
+  });
