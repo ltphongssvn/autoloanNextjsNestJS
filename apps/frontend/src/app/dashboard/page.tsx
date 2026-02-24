@@ -35,7 +35,7 @@ function getAppId(app: Application) {
 }
 function getVehicleInfo(app: Application) {
   const car = ((app as unknown as Record<string, unknown>).car_details as Record<string, string>) || {};
-  return car.make && car.model && car.year ? `${car.year} ${car.make} ${car.model}` : null;
+  return car.make && car.model && car.year ? `${car.make} ${car.model} ${car.year}` : null;
 }
 function getLoanInfo(app: Application) {
   const amount = Number((app as unknown as Record<string, unknown>).loan_amount || 0);

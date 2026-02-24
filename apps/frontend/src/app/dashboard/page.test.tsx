@@ -41,7 +41,7 @@ describe('DashboardPage', () => {
     render(<DashboardPage />);
     await waitFor(() => expect(screen.getAllByTestId('app-card')).toHaveLength(2));
     expect(screen.getByText('APP-0001')).toBeInTheDocument();
-    expect(screen.getByText('2024 Toyota Camry')).toBeInTheDocument();
+    expect(screen.getByText('Toyota Camry 2024')).toBeInTheDocument();
     expect(screen.getByText(/\$25,000/)).toBeInTheDocument();
   });
 
