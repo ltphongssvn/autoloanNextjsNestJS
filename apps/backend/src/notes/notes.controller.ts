@@ -6,18 +6,15 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { JwtPayload } from '../auth/jwt.strategy';
-
 interface AuthenticatedRequest {
   user: JwtPayload;
 }
-
 @ApiTags('Notes')
 @ApiBearerAuth()
 @Controller('applications/:applicationId/notes')
 @UseGuards(JwtAuthGuard, RolesGuard)
 export class NotesController {
   constructor(private readonly notesService: NotesService) {}
-
   @Post()
   @Roles('loan_officer', 'underwriter')
   @ApiOperation({ summary: 'Add a note to an application' })
@@ -29,9 +26,7 @@ export class NotesController {
   ) {
     return this.notesService.create(applicationId, req.user.sub, body.note, body.internal);
   }
-
   @Get()
-  @Roles('loan_officer', 'underwriter')
   @ApiOperation({ summary: 'List notes for an application' })
   findByApplication(@Param('applicationId', ParseIntPipe) applicationId: number) {
     return this.notesService.findByApplication(applicationId);
