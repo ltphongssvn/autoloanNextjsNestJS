@@ -69,9 +69,12 @@ export default function LoanAgreementPage() {
 
   const handleSign = async () => {
     if (!agreedTerms || !authorizeSignature || !signature) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const signatureData = canvas.toDataURL('image/png');
     setSigning(true);
     try {
-      const res = await api.applications.sign(Number(id), signature);
+      const res = await api.applications.sign(Number(id), signatureData);
       setApplication(res.data ?? res);
       setSigned(true);
     } catch (err) {
@@ -107,12 +110,16 @@ export default function LoanAgreementPage() {
   const app = application as unknown as Record<string, unknown>;
   const personal = (app.personal_info as Record<string, string>) || {};
   const car = (app.car_details as Record<string, string>) || {};
-  const loanAmount = Number(application.loan_amount || 0);
-  const downPayment = Number(application.down_payment || 0);
+  const loan = (app.loan_details as Record<string, string>) || {};
+  const loanAmount = Number(application.loan_amount || loan.amount || 0);
+  const downPayment = Number(application.down_payment || loan.down_payment || 0);
   const financed = loanAmount - downPayment;
   const term = application.loan_term || 48;
   const rate = Number(app.interest_rate || 6.9);
   const monthly = Number(app.monthly_payment || 0);
+  const firstPaymentDate = new Date();
+  firstPaymentDate.setMonth(firstPaymentDate.getMonth() + 1);
+  firstPaymentDate.setDate(1);
   const canSign = agreedTerms && authorizeSignature && !!signature && !signing;
 
   return (
@@ -141,6 +148,7 @@ export default function LoanAgreementPage() {
               <p><strong>Interest Rate:</strong> {rate}% APR</p>
               <p><strong>Term:</strong> {term} months</p>
               <p><strong>Monthly Payment:</strong> ${monthly.toFixed(2)}</p>
+              <p><strong>First Payment Due:</strong> {firstPaymentDate.toLocaleDateString()}</p>
               <hr className="my-2" />
               <p><strong>Vehicle:</strong> {car.year} {car.make} {car.model}</p>
               <p><strong>VIN:</strong> {car.vin || 'N/A'}</p>

@@ -28,7 +28,7 @@ vi.mock('../../../../../services/api', () => ({
 
 describe('LoanAgreementPage', () => {
   const mockCtx = { beginPath: vi.fn(), moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), clearRect: vi.fn(), strokeStyle: "", lineWidth: 0 };
-  beforeAll(() => { HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext; });
+  beforeAll(() => { HTMLCanvasElement.prototype.getContext = vi.fn(() => mockCtx) as unknown as typeof HTMLCanvasElement.prototype.getContext; HTMLCanvasElement.prototype.toDataURL = vi.fn(() => 'data:image/png;base64,mock'); });
   beforeEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
   it('renders loading state', () => {
@@ -158,7 +158,7 @@ describe('LoanAgreementPage', () => {
     fireEvent.click(screen.getByText('I have read and agree to the loan terms'));
     fireEvent.click(screen.getByText('I authorize electronic signature'));
     fireEvent.click(screen.getByTestId('sign-btn'));
-    await waitFor(() => expect(mockSign).toHaveBeenCalledWith(1, 'drawn'));
+    await waitFor(() => expect(mockSign).toHaveBeenCalledWith(1, 'data:image/png;base64,mock'));
     await waitFor(() => expect(screen.getByTestId('signed-section')).toBeInTheDocument());
   });
 
