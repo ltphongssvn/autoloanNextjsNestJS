@@ -1,3 +1,4 @@
+// apps/frontend/src/app/dashboard/profile/api-keys/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -27,8 +28,9 @@ export default function ApiKeysPage() {
 
   const fetchKeys = async () => {
     try {
-      const data = await api.apiKeys.list();
-      setKeys(data);
+      const res = await api.apiKeys.list();
+      const data = res.data ?? res;
+      setKeys(Array.isArray(data) ? data : []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load API keys');
     } finally {
@@ -43,7 +45,8 @@ export default function ApiKeysPage() {
     setActionLoading(true);
     setError('');
     try {
-      const result = await api.apiKeys.create(newKeyName.trim());
+      const res = await api.apiKeys.create(newKeyName.trim());
+      const result = res.data ?? res;
       setNewKeyResult(result.key);
       setNewKeyName('');
       await fetchKeys();
@@ -84,7 +87,7 @@ export default function ApiKeysPage() {
 
       {newKeyResult && (
         <div role="status" className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-sm font-medium text-green-800 mb-1">API key created. Copy it now — it won&apos;t be shown again:</p>
+          <p className="text-sm font-medium text-green-800 mb-1">API key created. Copy it now &mdash; it won&apos;t be shown again:</p>
           <code data-testid="new-key" className="block bg-white p-2 rounded font-mono text-sm break-all">{newKeyResult}</code>
           <button onClick={() => setNewKeyResult(null)} className="mt-2 text-sm text-green-700 hover:underline">Dismiss</button>
         </div>
