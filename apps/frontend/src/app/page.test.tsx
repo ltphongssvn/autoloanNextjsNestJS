@@ -1,37 +1,46 @@
-// apps/frontend/src/app/page.test.tsx
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import HomePage from './page';
 
-describe('HomePage', () => {
-  it('should render hero section', () => {
+describe('HomePage (LandingPage)', () => {
+  it('renders Auto Loan branding', () => {
     render(<HomePage />);
-    expect(screen.getByTestId('hero')).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('AutoLoan Application Platform');
+    expect(screen.getByText('Auto Loan')).toBeInTheDocument();
   });
 
-  it('should render CTA links', () => {
+  it('renders Login button in navbar', () => {
     render(<HomePage />);
-    expect(screen.getByTestId('cta-login')).toHaveAttribute('href', '/login');
-    expect(screen.getByTestId('cta-signup')).toHaveAttribute('href', '/signup');
+    expect(screen.getByTestId('cta-login')).toHaveTextContent('Login');
   });
 
-  it('should render features section', () => {
+  it('renders hero with correct title', () => {
+    render(<HomePage />);
+    expect(screen.getByText('Get Your Auto Loan in 15 minutes')).toBeInTheDocument();
+  });
+
+  it('renders hero subtitle', () => {
+    render(<HomePage />);
+    expect(screen.getByText(/Fast online approval/)).toBeInTheDocument();
+  });
+
+  it('renders Apply Now CTA', () => {
+    render(<HomePage />);
+    expect(screen.getByTestId('cta-apply')).toHaveTextContent('Apply Now');
+  });
+
+  it('renders payment calculator', () => {
+    render(<HomePage />);
+    expect(screen.getByTestId('payment-calculator')).toBeInTheDocument();
+  });
+
+  it('renders features section', () => {
     render(<HomePage />);
     expect(screen.getByTestId('features')).toBeInTheDocument();
     expect(screen.getAllByTestId('feature-item')).toHaveLength(3);
   });
 
-  it('should display feature titles', () => {
+  it('renders hero section', () => {
     render(<HomePage />);
-    expect(screen.getByText('Quick Application')).toBeInTheDocument();
-    expect(screen.getByText('Real-Time Tracking')).toBeInTheDocument();
-    expect(screen.getByText('Secure & Private')).toBeInTheDocument();
-  });
-
-  it('should have proper heading hierarchy', () => {
-    render(<HomePage />);
-    expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { level: 2, name: 'Why Choose AutoLoan?' })).toBeInTheDocument();
+    expect(screen.getByTestId('hero')).toBeInTheDocument();
   });
 });
