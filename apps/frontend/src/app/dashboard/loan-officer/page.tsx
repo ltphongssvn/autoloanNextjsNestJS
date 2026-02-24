@@ -133,7 +133,7 @@ export default function LoanOfficerDashboard() {
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Amount</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Status</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Date</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Action</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
