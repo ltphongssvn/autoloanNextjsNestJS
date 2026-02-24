@@ -121,7 +121,7 @@ export class ApplicationsController {
     @Res() res: Response,
   ) {
     const { buffer, filename } = await this.agreementPdfService.generate(id, req.user.sub, req.user.role);
-    res.set({ 'Content-Type': 'application/octet-stream', 'Content-Disposition': `attachment; filename="${filename}"` });
+    res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${filename}"` });
     res.send(buffer);
   }
 
