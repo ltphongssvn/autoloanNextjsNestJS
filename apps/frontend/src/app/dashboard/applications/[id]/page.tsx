@@ -1,3 +1,4 @@
+// apps/frontend/src/app/dashboard/applications/[id]/page.tsx
 'use client';
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -24,14 +25,14 @@ function field(obj: Record<string, unknown> | undefined, key: string): string {
 }
 function money(val: unknown): string {
   const n = Number(val || 0);
-  return n > 0 ? `$${n.toLocaleString()}` : '—';
+  return n > 0 ? `$${n.toLocaleString()}` : '\u2014';
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="py-1">
       <dt className="text-xs text-gray-500">{label}</dt>
-      <dd className="text-sm font-medium">{value || '—'}</dd>
+      <dd className="text-sm font-medium">{value || '\u2014'}</dd>
     </div>
   );
 }
@@ -93,7 +94,7 @@ export default function ApplicationDetailPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `loan_agreement_${application?.application_number || id}.txt`;
+      a.download = `loan_agreement_${application?.application_number || id}.pdf`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -112,7 +113,6 @@ export default function ApplicationDetailPage() {
   const app = application as unknown as Record<string, unknown>;
   const personal = (app.personal_info as Record<string, unknown>) || {};
   const car = (app.car_details as Record<string, unknown>) || {};
-  // loan_details accessed via app directly
   const employment = (app.employment_info as Record<string, unknown>) || {};
 
   const isStaff = user?.role === 'loan_officer' || user?.role === 'underwriter';
@@ -160,9 +160,9 @@ export default function ApplicationDetailPage() {
         <dl className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1">
           <InfoRow label="Loan Amount" value={money(application.loan_amount)} />
           <InfoRow label="Down Payment" value={money(application.down_payment)} />
-          <InfoRow label="Loan Term" value={application.loan_term ? `${application.loan_term} months` : '—'} />
-          <InfoRow label="Interest Rate" value={app.interest_rate ? `${app.interest_rate}%` : '—'} />
-          <InfoRow label="Monthly Payment" value={app.monthly_payment ? `$${Number(app.monthly_payment).toFixed(2)}` : '—'} />
+          <InfoRow label="Loan Term" value={application.loan_term ? `${application.loan_term} months` : '\u2014'} />
+          <InfoRow label="Interest Rate" value={app.interest_rate ? `${app.interest_rate}%` : '\u2014'} />
+          <InfoRow label="Monthly Payment" value={app.monthly_payment ? `$${Number(app.monthly_payment).toFixed(2)}` : '\u2014'} />
         </dl>
       </section>
 
