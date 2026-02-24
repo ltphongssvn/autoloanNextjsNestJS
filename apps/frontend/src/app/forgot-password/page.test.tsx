@@ -1,62 +1,107 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import ForgotPasswordPage from './page';
-const mockRequestPasswordReset = vi.fn();
-vi.mock('../../services/api', () => ({
-  api: { auth: { requestPasswordReset: (...args: unknown[]) => mockRequestPasswordReset(...args) } },
-}));
+
 describe('ForgotPasswordPage', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
-  it('renders branding and description', () => {
+  const mockFetch = vi.fn();
+  beforeEach(() => { vi.clearAllMocks(); vi.stubGlobal('fetch', mockFetch); });
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it('renders branding, title, and description', () => {
     render(<ForgotPasswordPage />);
     expect(screen.getByText('Auto Loan')).toBeInTheDocument();
     expect(screen.getByText('Forgot Password')).toBeInTheDocument();
     expect(screen.getByText(/send you instructions/)).toBeInTheDocument();
   });
-  it('renders form fields and button', () => {
+
+  it('renders email input and submit button', () => {
     render(<ForgotPasswordPage />);
-    expect(screen.getByLabelText('Email')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Send Reset Instructions' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /send reset instructions/i })).toBeInTheDocument();
   });
+
   it('renders back to login link', () => {
     render(<ForgotPasswordPage />);
-    expect(screen.getByText('Back to login')).toBeInTheDocument();
+    expect(screen.getByText(/back to login/i)).toBeInTheDocument();
   });
-  it('shows success message and clears email on success', async () => {
-    mockRequestPasswordReset.mockResolvedValue({ message: 'Instructions sent' });
+
+  it('shows success message on successful request', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ message: 'Instructions sent!' }) });
     render(<ForgotPasswordPage />);
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Instructions' }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Instructions sent'));
-    expect((screen.getByLabelText('Email') as HTMLInputElement).value).toBe('');
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('Instructions sent!')).toBeInTheDocument());
   });
-  it('shows default success message when none returned', async () => {
-    mockRequestPasswordReset.mockResolvedValue({});
+
+  it('shows default success message when none provided', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) });
     render(<ForgotPasswordPage />);
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Instructions' }));
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Password reset instructions sent'));
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('Password reset instructions sent to your email')).toBeInTheDocument());
   });
-  it('shows error on failure', async () => {
-    mockRequestPasswordReset.mockRejectedValue(new Error('Not found'));
+
+  it('clears email on success', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({ message: 'Sent!' }) });
     render(<ForgotPasswordPage />);
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Instructions' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Not found'));
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByLabelText(/email/i)).toHaveValue(''));
   });
-  it('handles non-Error throw', async () => {
-    mockRequestPasswordReset.mockRejectedValue('fail');
+
+  it('shows loading state during submission', async () => {
+    mockFetch.mockImplementation(() => new Promise(() => {}));
     render(<ForgotPasswordPage />);
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Instructions' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Failed to send reset instructions'));
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    expect(screen.getByRole('button', { name: /sending/i })).toBeDisabled();
   });
-  it('shows loading state', async () => {
-    mockRequestPasswordReset.mockReturnValue(new Promise(() => {}));
+
+  it('handles object errors format', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({ errors: { email: ['not found', 'invalid'] } }) });
     render(<ForgotPasswordPage />);
-    fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'a@b.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send Reset Instructions' }));
-    await waitFor(() => expect(screen.getByRole('button')).toHaveTextContent('Sending...'));
-    expect(screen.getByRole('button')).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('email: not found, invalid')).toBeInTheDocument());
+  });
+
+  it('handles array errors format', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({ errors: ['Error 1', 'Error 2'] }) });
+    render(<ForgotPasswordPage />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('Error 1, Error 2')).toBeInTheDocument());
+  });
+
+  it('handles single error format', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({ error: 'Email not found' }) });
+    render(<ForgotPasswordPage />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('Email not found')).toBeInTheDocument());
+  });
+
+  it('shows default error when no error message', async () => {
+    mockFetch.mockResolvedValueOnce({ ok: false, json: () => Promise.resolve({}) });
+    render(<ForgotPasswordPage />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('Failed to send reset instructions')).toBeInTheDocument());
+  });
+
+  it('handles network error', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('Network error'));
+    render(<ForgotPasswordPage />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('Network error')).toBeInTheDocument());
+  });
+
+  it('handles non-Error exception', async () => {
+    mockFetch.mockRejectedValueOnce('unknown');
+    render(<ForgotPasswordPage />);
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByRole('button', { name: /send reset instructions/i }));
+    await waitFor(() => expect(screen.getByText('An error occurred')).toBeInTheDocument());
   });
 });
