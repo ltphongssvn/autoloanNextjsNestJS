@@ -148,7 +148,7 @@ export default function UnderwriterDashboard() {
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">LTV</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Risk</th>
                 <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Date</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Action</th>
+                <th className="text-left px-4 py-3 text-sm font-medium text-gray-600">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
