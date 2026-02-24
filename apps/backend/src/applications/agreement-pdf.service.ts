@@ -8,9 +8,14 @@ const PDFDocument = require('pdfkit');
 export class AgreementPdfService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generate(applicationId: number, userId: number): Promise<{ buffer: Buffer; filename: string }> {
+  async generate(applicationId: number, userId: number, role?: string): Promise<{ buffer: Buffer; filename: string }> {
+    const isStaff = role === 'loan_officer' || role === 'underwriter';
+    const whereClause = isStaff
+      ? { id: applicationId }
+      : { id: applicationId, userId };
+
     const application = await this.prisma.application.findFirst({
-      where: { id: applicationId, userId },
+      where: whereClause,
       include: { user: true, addresses: true, vehicles: true, financialInfos: true },
     });
     if (!application) throw new NotFoundException('Application not found');
