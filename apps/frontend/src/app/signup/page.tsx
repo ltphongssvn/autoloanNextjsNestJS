@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { api } from '../../services/api';
 export default function SignupPage() {
-  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', password: '', password_confirmation: '' });
+  const [form, setForm] = useState({ first_name: '', last_name: '', phone: '', email: '', password: '', password_confirmation: '', role: 'borrower' as const });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
