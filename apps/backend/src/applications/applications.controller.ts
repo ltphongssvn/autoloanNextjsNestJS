@@ -126,7 +126,6 @@ export class ApplicationsController {
   }
 
   @Get(':id/history')
-  @Roles('loan_officer', 'underwriter')
   @ApiOperation({ summary: 'Get status change history' })
   getHistory(@Param('id', ParseIntPipe) id: number) {
     return this.statusHistoryService.findByApplication(id);
